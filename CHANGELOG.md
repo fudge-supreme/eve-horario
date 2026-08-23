@@ -30,3 +30,27 @@ comparando contra el comportamiento original.
 
 **Datos de usuaria:** sin tocar. Esta fase no lee ni modifica
 `localStorage` — eso ocurre hasta la Fase 0.5.
+
+## Fase 0.5 — Limpieza de datos legacy (2026-08-23)
+
+**Qué cambió:** al abrir la app por primera vez tras esta actualización,
+se borra en silencio todo lo que había en el `localStorage` del navegador
+que no pertenezca al nuevo sistema (horario, notas, etiquetas y pendientes
+de la versión anterior). No hay pantalla ni aviso — es limpieza en segundo
+plano, una sola vez, controlada por la key `legacy_cleaned_at`.
+
+**Por qué:** la usuaria original confirmó que no necesita conservar esos
+datos. No se guardó ningún respaldo — se autorizó explícitamente eliminarlos
+sin backup.
+
+**Qué significa esto para ti si ya usabas la app:** tu horario, notas y
+pendientes actuales se van a resetear al horario por defecto la próxima vez
+que abras la app actualizada. Si prefieres conservar algo de lo que tienes
+ahorita, avísame antes de que se despliegue esta versión.
+
+**Qué NO se tocó todavía:** el código que lee/escribe `localStorage`
+directamente (`h-ev`, `h-tags`, `h-notes`, `h-todos`) sigue funcionando
+igual que antes — por eso la app, después del reseteo, se ve y se comporta
+exactamente igual, solo que con el horario por defecto. Ese código se
+reemplaza hasta la Fase 2, cuando exista la capa de repositorios que lo
+sustituye; borrarlo antes habría roto la app sin nada que lo reemplace.

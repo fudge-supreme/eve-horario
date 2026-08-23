@@ -384,6 +384,21 @@ footer p{font-family:'Fraunces',serif;font-style:italic;font-size:11.5px;color:v
 <div class="toast" id="toast"></div>
 <div class="ptr" id="ptr">↓</div>
 <script>
+/* ======== LIMPIEZA DE DATOS LEGACY (Fase 0.5) ========
+   Corre una sola vez, antes de leer cualquier dato. La usuaria original
+   autorizó borrar sus datos de la versión anterior (no se preservan ni
+   se respaldan). Cualquier key que no pertenezca al set del nuevo sistema
+   se elimina; el flag legacy_cleaned_at evita repetir esto en cada carga. */
+(function limpiarDatosLegacy(){
+  if(localStorage.getItem("legacy_cleaned_at"))return;
+  const keysNuevoSistema=new Set(["theme","migrated_v2","sync_last_pull_at","pending_writes","legacy_cleaned_at"]);
+  Object.keys(localStorage).forEach(k=>{
+    if(k.startsWith("sb-")||keysNuevoSistema.has(k))return;
+    localStorage.removeItem(k);
+  });
+  localStorage.setItem("legacy_cleaned_at",new Date().toISOString());
+})();
+
 /* ======== DATA ======== */
 const DEF_SCHED={
 "Lunes":[{s:15,e:17,n:"Educación para el dibujo 1",r:"T-205"},{s:17,e:20,n:"Diseño integrador 1",r:"S-201"}],
