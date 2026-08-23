@@ -1,19 +1,42 @@
 # Mi Horario — pocket schedule PWA
 
+## Estado del proyecto
+
+Este repo está en migración hacia una versión multi-usuario con cuenta,
+sync entre dispositivos y notificaciones (ver `CHANGELOG.md` para el detalle
+fase por fase). Mientras la migración avanza, la app **sigue funcionando
+100% local** como hasta ahora — nada de lo que ya usa tu amiga deja de
+funcionar a mitad de camino.
+
+## Desarrollo local
+
+Requiere [Node.js](https://nodejs.org) 18 o más nuevo.
+
+```bash
+npm install       # una sola vez
+npm run dev       # levanta el servidor de desarrollo con recarga en vivo
+npm run build     # genera la versión de producción en dist/
+npm run preview   # sirve dist/ localmente para probar el build antes de publicar
+```
+
+### Supabase local (para las fases de backend/sync)
+
+```bash
+supabase start    # levanta Postgres + Auth + Studio en tu máquina (requiere Docker)
+supabase stop      # los apaga
+```
+
+Copia `.env.example` a `.env` y llena `VITE_SUPABASE_URL` /
+`VITE_SUPABASE_ANON_KEY` con lo que imprima `supabase start` en la terminal.
+
 ## Publicar en GitHub Pages
 
 1. Crea un repositorio nuevo en GitHub (puede ser público o privado con Pages habilitado).
-2. Sube estos archivos manteniendo la estructura de carpetas tal cual:
-   ```
-   index.html
-   manifest.json
-   service-worker.js
-   icons/icon-192.png
-   icons/icon-512.png
-   icons/apple-touch-icon.png
-   ```
-3. Ve a **Settings → Pages** del repositorio.
-4. En "Source", selecciona la rama (`main`) y la carpeta raíz (`/`).
+2. Corre `npm run build` — esto genera la carpeta `dist/` con todo listo para publicar
+   (ya no se sube `index.html` y compañía sueltos, sino el contenido de `dist/`).
+3. Sube el contenido de `dist/` a la rama que uses para Pages (por ejemplo `gh-pages`,
+   o configura un GitHub Action — se documenta a detalle al cerrar la migración).
+4. Ve a **Settings → Pages** del repositorio y selecciona esa rama como origen.
 5. Guarda. GitHub te da un link tipo `https://tuusuario.github.io/nombre-repo/`.
 6. Espera 1-2 minutos a que se publique, y prueba el link en tu navegador.
 

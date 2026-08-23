@@ -1,0 +1,21 @@
+{
+  "name": "mi-horario",
+  "version": "0.1.0",
+  "description": "Pocket schedule para estudiantes — grid semanal, tareas, notas y sync multi-dispositivo",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "date-fns": "^3.6.0",
+    "html2canvas": "^1.4.1",
+    "idb": "^8.0.0"
+  },
+  "devDependencies": {
+    "vite": "^8.2.2"
+  }
+}
