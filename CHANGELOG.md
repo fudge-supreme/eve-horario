@@ -54,3 +54,37 @@ igual que antes — por eso la app, después del reseteo, se ve y se comporta
 exactamente igual, solo que con el horario por defecto. Ese código se
 reemplaza hasta la Fase 2, cuando exista la capa de repositorios que lo
 sustituye; borrarlo antes habría roto la app sin nada que lo reemplace.
+
+## Fase 1 — Backend (2026-08-23)
+
+**Qué cambió:** se escribió el esquema completo de Postgres
+(`supabase/migrations/001_initial_schema.sql`): 10 tablas (perfiles,
+horarios, materias, sesiones de clase, eventos, tareas, etiquetas, notas,
+suscripciones push, preferencias de notificación), todas con RLS
+habilitada — cada usuaria solo ve y modifica sus propios datos. Un trigger
+crea automáticamente el perfil y las preferencias de notificación al
+registrarse una cuenta nueva.
+
+También se agregó `supabase/seed.sql` con una usuaria de prueba (horario
+completo: 5 materias, tareas, un evento, notas y etiquetas) y una segunda
+usuaria mínima, pensada específicamente para probar que RLS aísla los
+datos entre cuentas.
+
+**Decisión que tomé sin preguntar:** el spec original no le puso columna
+`updated_at` a `profiles` ni a `notification_prefs`, pero sí pide un
+trigger genérico que la mantenga al día "en cada UPDATE" — y Fase 3
+describe `profiles.theme` como un dato que sincroniza. Le agregué
+`updated_at` a esas dos tablas para que el patrón sea consistente en
+todas partes; es un cambio de bajo riesgo, reversible con una migración
+si prefieres quitarlo.
+
+**Sin cambios en el frontend:** `index.html` sigue exactamente igual, la
+PWA sigue funcionando 100% local — esta fase es puramente backend.
+
+**Pendiente — no verificado en vivo:** esta máquina todavía no tiene
+Docker instalado, así que no se pudo correr `supabase db reset` para
+confirmar que la migración corre limpia, que el seed carga, ni que RLS
+aísla de verdad a las dos usuarias de prueba. El SQL está escrito y
+revisado a mano con cuidado, pero **"escrito" no es lo mismo que
+"verificado"** — en cuanto Docker esté listo se corre y se confirma antes
+de dar esta fase por cerrada de verdad.
