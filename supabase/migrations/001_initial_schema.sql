@@ -308,3 +308,22 @@ $$;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- ============================================================
+-- PRIVILEGIOS DE API
+-- ============================================================
+-- RLS por sí sola no basta: Postgres también exige el GRANT de tabla de
+-- base para que un rol pueda tocarla, y las versiones recientes de
+-- Supabase ya NO exponen tablas nuevas del schema public a la API por
+-- default (antes sí). Sin esto, ni siquiera la dueña de una fila puede
+-- leerla, aunque su política de RLS esté perfecta.
+-- `anon` no recibe nada a propósito: todo aquí requiere sesión iniciada.
+-- `service_role` la usa la Edge Function de recordatorios (Fase 5) para
+-- leer entre usuarias saltándose RLS.
+grant usage on schema public to authenticated, service_role;
+grant select, insert, update, delete on all tables in schema public to authenticated;
+grant all on all tables in schema public to service_role;
+alter default privileges in schema public
+  grant select, insert, update, delete on tables to authenticated;
+alter default privileges in schema public
+  grant all on tables to service_role;

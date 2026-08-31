@@ -81,10 +81,20 @@ si prefieres quitarlo.
 **Sin cambios en el frontend:** `index.html` sigue exactamente igual, la
 PWA sigue funcionando 100% local — esta fase es puramente backend.
 
-**Pendiente — no verificado en vivo:** esta máquina todavía no tiene
-Docker instalado, así que no se pudo correr `supabase db reset` para
-confirmar que la migración corre limpia, que el seed carga, ni que RLS
-aísla de verdad a las dos usuarias de prueba. El SQL está escrito y
-revisado a mano con cuidado, pero **"escrito" no es lo mismo que
-"verificado"** — en cuanto Docker esté listo se corre y se confirma antes
-de dar esta fase por cerrada de verdad.
+**Verificado en vivo** (Docker ya instalado): `supabase start` +
+`supabase db reset` corrieron la migración y el seed sin errores. Primer
+intento encontró un bug real — las versiones recientes del CLI de
+Supabase ya no exponen tablas nuevas de `public` a la API por default (antes
+sí lo hacían), así que aunque RLS estaba bien, nadie podía leer nada, ni
+siquiera la dueña de sus propios datos. Se agregaron los `GRANT`
+explícitos que faltaban. Después del fix, probado contra el stack real
+vía la API REST con las dos usuarias del seed:
+- cada quien ve exactamente sus propias filas (5 materias / 6 tareas para
+  la usuaria 1, 1 materia / 0 tareas para la usuaria 2);
+- la usuaria 2 no puede leer el horario de la usuaria 1 por ID directo
+  (0 filas, no error — RLS lo oculta en vez de rechazarlo);
+- la usuaria 2 no puede borrar una materia de la usuaria 1 (0 filas
+  afectadas) — y se confirmó que la materia seguía intacta después;
+- el trigger de auto-creación dejó `profiles.theme = 'coursicle-soft'`
+  (el default nuevo) y `notification_prefs` con sus valores por default,
+  sin que el seed los insertara a mano.
