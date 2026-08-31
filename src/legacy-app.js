@@ -10,6 +10,7 @@ import { classSessionRepo } from './data/repositories/classSessionRepo.js';
 import { eventRepo } from './data/repositories/eventRepo.js';
 import { onSyncStatusChange, getSyncStatus } from './data/syncStatus.js';
 import { navigate } from './router.js';
+import { mountThemeMenu } from './themes/themeMenu.js';
 
 /* ======== DATA ======== */
 // Horario por default para cuentas nuevas sin materias todavía (hasta
@@ -185,14 +186,6 @@ async function refreshEv() {
     };
   }
   ev = next;
-}
-
-/* ======== THEME (claro/oscuro -- el switcher de paletas es Fase 3) ======== */
-let theme = localStorage.getItem('h-theme') || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
-function applyTheme() {
-  document.documentElement.dataset.theme = theme;
-  document.getElementById('themeBtn').textContent = theme === 'dark' ? '☀️' : '🌙';
-  localStorage.setItem('h-theme', theme);
 }
 
 /* ======== HELPERS ======== */
@@ -715,8 +708,8 @@ let domBound = false;
 export function bindLegacyAppOnce() {
   if (domBound) return;
   domBound = true;
-  document.getElementById('themeBtn').onclick = () => { theme = theme === 'dark' ? 'light' : 'dark'; applyTheme(); haptic(H.toggle); };
   document.getElementById('settingsBtn').onclick = () => navigate('/ajustes/seguridad');
+  mountThemeMenu(document.getElementById('themeMenuMount'));
   if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('service-worker.js').catch(() => {}));
   window.addEventListener('sync:data-changed', async () => {
     await refreshEv();
@@ -729,7 +722,6 @@ export async function loadAndRenderApp() {
   // paralelo DENTRO de una misma sesión de usuaria -- si esta llamada es
   // para una cuenta distinta a la anterior, hay que soltarla.
   ensureSeedPromise = null;
-  applyTheme();
   await refreshEv();
   renderToday(); renderWeek(); renderGrid(); renderTodos();
   renderSyncDot();

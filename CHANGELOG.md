@@ -165,3 +165,63 @@ físico distinto de verdad.
 **Pendiente, no bloqueante:** la imagen de vista previa de la landing
 (`/landing-preview.png`) no existe todavía — se deja para Fase 6, que es
 donde se pule esa pantalla.
+
+## Fase 3 — Sistema de temas (2026-08-31)
+
+**Cambio de alcance respecto al spec original, decidido en esta sesión:**
+Editorial Rosé (el tema original de la app, con su propio claro/oscuro)
+se **retiró por completo** — no quedó como cuarto tema legado, como decía
+el plan original. Quedan 3 temas + automático:
+
+- **Coursicle Soft** (default) — blanco, acento azul.
+- **Liquid Glass** — fondo plateado degradado, superficies translúcidas
+  con blur (con fallback a colores sólidos si el navegador no soporta
+  `backdrop-filter`).
+- **Obsidian AMOLED** — negro puro, acento morado con glow sutil en
+  elementos activos.
+- **Automático** — seguí `prefers-color-scheme`, alternando Coursicle
+  Soft (claro) / Obsidian AMOLED (oscuro).
+
+**Selector:** en vez de la pantalla `/ajustes/apariencia` con 4 tarjetas
+de preview del plan original, el tema se cambia desde un menú
+desplegable (ícono de 3 barritas en el header, patrón común en muchas
+apps) — más simple, y accesible desde cualquier parte de la app sin
+navegar a ajustes.
+
+**El reto técnico real de esta fase:** el CSS del grid/tarjetas/chips
+que ya existe usa nombres de variable específicos de la versión anterior
+(`--terracotta`, `--glass`, `--glass-border`, `--ink2`, `--tag-blue`...
+`--tag-terracotta`, `--card-blur`...), pero el spec de los temas nuevos
+define un vocabulario mínimo distinto (`--accent`, `--ink-soft`,
+`--surface-2`...). Cada uno de los 3 temas nuevos define AMBOS
+conjuntos — el propio del spec, y alias de las variables viejas
+mapeados a su paleta — así el grid, las tarjetas y las pantallas de auth
+de las fases anteriores se ven bien bajo cualquier tema sin tocarles una
+línea. Las variables puramente estructurales (tamaños de fila/columna,
+curvas de animación) salieron de los archivos de tema porque no varían
+por tema — viven en un `:root` compartido.
+
+**Migración:** cualquier cuenta que abra la app sin el flag
+`migrated_v2` arranca en Coursicle Soft (no hay Editorial Rosé que
+preservar como opción, así que la migración es más simple que lo que
+planteaba el spec original — no hace falta detectar un valor legacy
+específico). El tema también sincroniza a `profiles.theme`: si lo
+cambias en un dispositivo, el siguiente login en otro lo hereda.
+
+**Bug real encontrado y corregido — no de esta fase, pero lo expuso**:
+al probar con la usuaria semilla de Fase 1 (`prueba@mihorario.dev`) en el
+mismo navegador donde antes había probado con otra cuenta, su horario
+mostraba **materias de la otra cuenta**. La causa: los repos (Fase 2)
+nunca filtraban las lecturas de IndexedDB por `user_id` — solo las
+escrituras lo asignaban bien. Si dos cuentas distintas usan el mismo
+navegador sin cerrar sesión explícitamente entre una y otra, sus datos
+se mezclaban en pantalla. Se corrigió filtrando `list()`/`get()`/
+`update()`/`delete()` por la usuaria autenticada actual en
+`src/data/repositories/baseRepo.js` — ahora es imposible ver datos de
+otra cuenta sin importar qué haya quedado guardado localmente.
+
+**Verificado en vivo:** los 3 temas + automático aplican correctamente
+(incluida la resolución de "automático" según preferencia del sistema
+al cargar), sincronizan a `profiles.theme` en el servidor, y la
+migración se probó aislada (sin sesión activa, para no confundirla con
+el comportamiento correcto de "el remoto manda" una vez autenticado).

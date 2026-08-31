@@ -1,4 +1,8 @@
 import './styles/auth.css';
+import './themes/coursicle-soft.css';
+import './themes/liquid-glass.css';
+import './themes/obsidian-amoled.css';
+import './themes/themeMenu.css';
 import { supabase } from './data/supabase.js';
 import { pull, startSync, stopSync } from './data/sync.js';
 import { register, setNotFound, startRouter, navigate, currentRoute } from './router.js';
@@ -9,6 +13,7 @@ import { renderRecuperar } from './screens/recuperar.js';
 import { renderNuevaContrasena } from './screens/nuevaContrasena.js';
 import { renderAjustesSeguridad } from './screens/ajustesSeguridad.js';
 import { bindLegacyAppOnce, loadAndRenderApp } from './legacy-app.js';
+import { initTheme, pullThemeFromProfile } from './themes/theme.js';
 
 /* ======== LIMPIEZA DE DATOS LEGACY (Fase 0.5) ========
    Corre una sola vez, antes de leer cualquier dato. La usuaria original
@@ -24,6 +29,8 @@ import { bindLegacyAppOnce, loadAndRenderApp } from './legacy-app.js';
   });
   localStorage.setItem('legacy_cleaned_at', new Date().toISOString());
 })();
+
+initTheme();
 
 const authShell = document.getElementById('auth-shell');
 const appShell = document.getElementById('app-shell');
@@ -53,6 +60,7 @@ async function ensureSyncStarted(session) {
   // segundo dispositivo), tienen que aparecer antes de decidir si hace
   // falta un horario de ejemplo.
   await pull();
+  await pullThemeFromProfile(currentUserId); // si cambiaste el tema en otro dispositivo, el remoto manda
   startSync(currentUserId);
 }
 

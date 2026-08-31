@@ -1,0 +1,37 @@
+/* Coursicle Soft — tema default. Superficies blancas, acento azul,
+   pasteles saturados para materias. Fiel a coursicle.com. */
+[data-theme="coursicle-soft"] {
+  /* --- tokens del spec --- */
+  --bg: #FAFAFA;
+  --surface: #FFFFFF;
+  --surface-2: #F5F5F7;
+  --ink: #1A1A1F;
+  --ink-soft: #6E6E73;
+  --accent: #2E7CF6;
+  --accent-soft: #E8F0FE;
+  --border: #E5E5EA;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --course-colors: #B8D4F1, #A8D8B9, #F4C6A5, #F5B5B5, #D4B8E8, #F5E1A8, #C5E1D4;
+
+  /* --- alias para el CSS existente del grid/sheets/chips, que todavía
+     usa los nombres de variable de la versión anterior (Editorial Rosé).
+     Así ese CSS no se toca y se ve bien bajo cualquier tema. --- */
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(229, 229, 234, 0.9);
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(46, 124, 246, 0.04);
+  --rose: #F5B5B5;
+  --rose-deep: #E0949A;
+  --terracotta: var(--accent);
+  --ink2: var(--ink-soft);
+  --line: var(--border);
+  --tag-blue: #5B8DEF;
+  --tag-purple: #9B7FE8;
+  --tag-gold: #E0A72E;
+  --tag-green: #4CAF7D;
+  --tag-coral: #EF6B6B;
+  --tag-rose: #F5B5B5;
+  --tag-terra: var(--accent);
+  --glow: none;
+  --card-blur: blur(20px) saturate(1.2);
+  --glass-sh: 0 4px 24px -8px rgba(26, 26, 31, 0.08), 0 1px 3px rgba(26, 26, 31, 0.04);
+}

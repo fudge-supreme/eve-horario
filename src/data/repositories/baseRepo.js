@@ -10,20 +10,31 @@ export function createRepo(table) {
   async function currentUserId() {
     const { data } = await supabase.auth.getSession();
     const userId = data.session?.user?.id;
-    if (!userId) throw new Error(`No hay sesión activa para escribir en ${table}`);
+    if (!userId) throw new Error(`No hay sesión activa para usar ${table}`);
     return userId;
   }
 
+  // IndexedDB es una sola base por origen: si en este navegador ya
+  // inició sesión otra cuenta antes (sin cerrar sesión explícitamente,
+  // ej. dos personas probando en la misma compu), sus filas pueden
+  // seguir ahí. Filtrar SIEMPRE por user_id evita que se mezclen datos
+  // de una cuenta con los de otra -- no basta con confiar en que el
+  // logout limpia todo.
   return {
     async list() {
       const db = await getDB();
+      const userId = await currentUserId();
       const all = await db.getAll(table);
-      return all.filter((row) => !row.deleted_at).sort((a, b) => a.created_at?.localeCompare(b.created_at ?? '') ?? 0);
+      return all
+        .filter((row) => row.user_id === userId && !row.deleted_at)
+        .sort((a, b) => a.created_at?.localeCompare(b.created_at ?? '') ?? 0);
     },
 
     async get(id) {
       const db = await getDB();
-      return db.get(table, id);
+      const userId = await currentUserId();
+      const row = await db.get(table, id);
+      return row && row.user_id === userId ? row : undefined;
     },
 
     async create(data) {
@@ -45,8 +56,9 @@ export function createRepo(table) {
 
     async update(id, patch) {
       const db = await getDB();
+      const userId = await currentUserId();
       const existing = await db.get(table, id);
-      if (!existing) throw new Error(`${table}: no existe la fila ${id}`);
+      if (!existing || existing.user_id !== userId) throw new Error(`${table}: no existe la fila ${id}`);
       const row = { ...existing, ...patch, id, updated_at: new Date().toISOString(), synced_at: null };
       await db.put(table, row);
       schedulePush();
@@ -55,8 +67,9 @@ export function createRepo(table) {
 
     async delete(id) {
       const db = await getDB();
+      const userId = await currentUserId();
       const existing = await db.get(table, id);
-      if (!existing) return;
+      if (!existing || existing.user_id !== userId) return;
       const row = { ...existing, deleted_at: new Date().toISOString(), updated_at: new Date().toISOString(), synced_at: null };
       await db.put(table, row);
       schedulePush();

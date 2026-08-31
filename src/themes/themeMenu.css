@@ -1,0 +1,96 @@
+.theme-menu {
+  position: relative;
+}
+.theme-menu-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  backdrop-filter: var(--card-blur);
+  -webkit-backdrop-filter: var(--card-blur);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  box-shadow: var(--glass-inset), var(--glass-sh);
+  transition: transform 0.12s var(--ease-out), var(--theme-t);
+}
+.theme-menu-btn:active {
+  transform: scale(0.86);
+}
+.theme-menu-bar {
+  width: 15px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: var(--ink);
+  transition: var(--theme-t);
+}
+
+.theme-menu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 190px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(30px) saturate(1.5);
+  -webkit-backdrop-filter: blur(30px) saturate(1.5);
+  border-radius: 16px;
+  box-shadow: var(--glass-inset), var(--glass-sh);
+  padding: 6px;
+  z-index: 25;
+  animation: themeMenuIn 0.16s var(--ease-out) both;
+}
+@keyframes themeMenuIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.theme-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 11px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.14s var(--ease-out);
+}
+.theme-menu-item:active {
+  transform: scale(0.98);
+}
+.theme-menu-item:hover {
+  background: rgba(128, 128, 128, 0.1);
+}
+.theme-menu-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 1px rgba(128, 128, 128, 0.25) inset;
+}
+.theme-menu-label {
+  flex: 1;
+}
+.theme-menu-check {
+  opacity: 0;
+  color: var(--accent, var(--terracotta));
+  font-size: 12px;
+  font-weight: 700;
+}
+.theme-menu-item.active .theme-menu-check {
+  opacity: 1;
+}
+.theme-menu-item.active {
+  background: rgba(128, 128, 128, 0.08);
+}

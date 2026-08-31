@@ -1,0 +1,49 @@
+/* Liquid Glass — fondo degradado plateado, superficies translúcidas con
+   blur. Fallback a colores sólidos si el navegador no soporta
+   backdrop-filter (ver @supports al final). */
+[data-theme="liquid-glass"] {
+  /* --- tokens del spec --- */
+  --bg-gradient: linear-gradient(135deg, #F5F6F8 0%, #E8EAEF 50%, #F0F1F4 100%);
+  --bg: var(--bg-gradient);
+  --surface: rgba(255, 255, 255, 0.65);
+  --surface-2: rgba(255, 255, 255, 0.45);
+  --ink: #0A0A0F;
+  --ink-soft: #4A4A55;
+  --accent: #5B7FD9;
+  --accent-soft: rgba(91, 127, 217, 0.12);
+  --border: rgba(255, 255, 255, 0.8);
+  --border-dark: rgba(10, 10, 15, 0.08);
+  --shadow: 0 8px 32px rgba(10, 10, 15, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --blur: blur(20px) saturate(1.4);
+  --course-colors: #A8C0F0, #A8DCC0, #F0C9A8, #F0AEB8, #C9B0E8, #F0DCA0, #B0D8CC;
+
+  /* --- alias para el CSS existente (ver coursicle-soft.css) --- */
+  --glass: var(--surface);
+  --glass-border: var(--border);
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(10, 10, 15, 0.03);
+  --rose: #F0AEB8;
+  --rose-deep: #D98A96;
+  --terracotta: var(--accent);
+  --ink2: var(--ink-soft);
+  --line: var(--border-dark);
+  --tag-blue: #5B7FD9;
+  --tag-purple: #9370DB;
+  --tag-gold: #C99A3E;
+  --tag-green: #4A9B78;
+  --tag-coral: #D97070;
+  --tag-rose: #F0AEB8;
+  --tag-terra: var(--accent);
+  --glow: none;
+  --card-blur: var(--blur);
+  --glass-sh: 0 8px 32px rgba(10, 10, 15, 0.1), 0 1px 3px rgba(10, 10, 15, 0.05);
+}
+
+/* Sin backdrop-filter no hay "vidrio" que mostrar: superficies sólidas
+   para que siga siendo legible en vez de verse como un panel vacío. */
+@supports not (backdrop-filter: blur(20px)) {
+  [data-theme="liquid-glass"] {
+    --surface: #F0F1F4;
+    --surface-2: #E8EAEF;
+    --glass: #F0F1F4;
+  }
+}

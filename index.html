@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="coursicle-soft">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>Mi Horario</title>
-<meta name="theme-color" content="#B87355">
+<meta name="theme-color" content="#2E7CF6">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Horario">
@@ -15,18 +15,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-/* ============ TOKENS ============ */
+/* ============ TOKENS ESTRUCTURALES (sin color, iguales en todos los temas) ============
+   Los tokens de color/superficie viven en src/themes/*.css, uno por tema,
+   aplicados vía [data-theme="..."] en <html>. Ver src/themes/theme.js. */
 :root{
-  --bg:#F5EFE8;--surface:#FBF7F2;
-  --glass:rgba(251,247,242,.58);--glass-border:rgba(229,214,201,.5);
-  --glass-inset:inset 0 1px 0 rgba(255,255,255,.55),inset 0 -1px 0 rgba(184,115,85,.06);
-  --rose:#E8C4B8;--rose-deep:#D9A79C;--terracotta:#B87355;
-  --ink:#2A2320;--ink2:#8C7B70;--line:rgba(229,214,201,.6);
-  --tag-blue:#7C93A8;--tag-purple:#96738F;--tag-gold:#C7A34C;
-  --tag-green:#7BA87C;--tag-coral:#C4726C;--tag-rose:#E8C4B8;--tag-terra:#B87355;
-  --glow:none;--card-blur:blur(20px) saturate(1.4);
-  --shadow:0 2px 8px rgba(42,35,32,.06),0 12px 28px -12px rgba(42,35,32,.18);
-  --glass-sh:0 4px 24px -8px rgba(42,35,32,.12),0 1px 3px rgba(42,35,32,.06);
   --row-h:64px;--head-h:44px;--time-w:42px;--day-w:130px;
 
   /* iOS-style easing curves */
@@ -36,16 +28,6 @@
   --ease-snap:cubic-bezier(.22,1,.36,1);
 
   --theme-t:background-color .38s var(--ease-out),border-color .38s var(--ease-out),color .38s var(--ease-out),box-shadow .38s var(--ease-out);
-}
-[data-theme="dark"]{
-  --bg:#141211;--surface:#1E1C1A;
-  --glass:rgba(30,28,26,.65);--glass-border:rgba(80,72,62,.4);
-  --glass-inset:inset 0 1px 0 rgba(255,255,255,.05),inset 0 -1px 0 rgba(0,0,0,.2);
-  --ink:#F0EAE2;--ink2:#9E9388;--line:rgba(80,72,62,.45);
-  --shadow:0 2px 12px rgba(0,0,0,.3),0 12px 32px -12px rgba(0,0,0,.5);
-  --glass-sh:0 4px 28px -8px rgba(0,0,0,.4),0 1px 4px rgba(0,0,0,.2);
-  --glow:0 0 18px -4px;
-  --card-blur:blur(24px) saturate(1.2);
 }
 /* ============ RESET ============ */
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0}
@@ -372,7 +354,7 @@ footer p{font-family:'Fraunces',serif;font-style:italic;font-size:11.5px;color:v
     <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
       <span class="sync-dot" id="syncDot" data-status="offline" title="Estado de sincronización"></span>
       <button class="theme-toggle" id="settingsBtn" aria-label="Ajustes" style="margin-top:0">⚙️</button>
-      <button class="theme-toggle" id="themeBtn" aria-label="Cambiar tema" style="margin-top:0">☀️</button>
+      <div id="themeMenuMount"></div>
     </div>
   </header>
   <div class="today-card" id="todayCard"></div>
