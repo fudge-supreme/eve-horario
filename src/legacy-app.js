@@ -1,226 +1,33 @@
-// La app original (grid, today card, notas, tags, pendientes, polish
-// iOS) tal cual estaba, movida de index.html a un módulo real. Notas,
-// tags y pendientes SIGUEN en localStorage (se migran en Fase 4) --
-// solo las "materias" (clases fijas -> courses+class_sessions) y los
-// eventos sueltos (-> events) ahora pasan por los repos + IndexedDB +
-// sync, en vez de guardarse planos en localStorage.
-import { scheduleRepo } from './data/repositories/scheduleRepo.js';
+// App principal: grid semanal, today card + countdown, course detail
+// sheet, evento personal. Las vistas de Materias y Tareas viven en
+// src/app/ (módulos aparte). Los datos compartidos viven en
+// src/app/state.js (evita un ciclo de imports entre este archivo y
+// los módulos de app/, que este archivo sí importa).
 import { courseRepo } from './data/repositories/courseRepo.js';
 import { classSessionRepo } from './data/repositories/classSessionRepo.js';
 import { eventRepo } from './data/repositories/eventRepo.js';
+import { tagRepo } from './data/repositories/tagRepo.js';
+import { noteRepo } from './data/repositories/noteRepo.js';
 import { onSyncStatusChange, getSyncStatus } from './data/syncStatus.js';
 import { navigate } from './router.js';
 import { mountThemeMenu } from './themes/themeMenu.js';
+import { haptic, H, fH, esc, toast, openSheet, closeSheet } from './app/shared.js';
+import {
+  DAYS, DS, today, COURSE_COLORS, TAG_COLOR_PALETTE,
+  getState, refreshEv, resetSeedCache, migrateLocalStorageEntitiesIfNeeded,
+  setWeekOffset, isCurrentWeek, weekLabelText, dateForDayInVisibleWeek,
+} from './app/state.js';
+import { renderMaterias, openAddMateriaSheet, setCourseClickHandler, bindMateriasSearch } from './app/materias.js';
+import { renderTasksPanel, openAddTaskSheet, setTasksMutatedHandler } from './app/tasks.js';
+import { openScheduleSwitcher, renderScheduleHeader } from './app/schedules.js';
+import { exportGridAsPNG, exportScheduleAsICS } from './app/export.js';
+import { setActiveTab, bindNav } from './app/nav.js';
 
-/* ======== DATA ======== */
-// Horario por default para cuentas nuevas sin materias todavía (hasta
-// que exista onboarding real en Fase 6).
-const DEF_SCHED = {
-  Lunes: [
-    { s: 15, e: 17, n: 'Educación para el dibujo 1', r: 'T-205' },
-    { s: 17, e: 20, n: 'Diseño integrador 1', r: 'S-201' },
-  ],
-  Martes: [
-    { s: 15, e: 17, n: 'Tipografía 1', ol: 1 },
-    { s: 17, e: 20, n: 'Introducción a la Teoría de Diseño y Estética', ol: 1 },
-  ],
-  Miércoles: [
-    { s: 14, e: 16, n: 'Procesos de Representación Bidimensional 1', r: 'TI-6' },
-    { s: 17, e: 19, n: 'Diseño integrador 1', r: 'S-201' },
-  ],
-  Jueves: [
-    { s: 16, e: 18, n: 'Análisis de textos y redacción', ol: 1 },
-    { s: 18, e: 20, n: 'Recursos Tecnológicos para el Diseño', ol: 1 },
-  ],
-  Viernes: [
-    { s: 14, e: 16, n: 'Geometría', r: 'S-203' },
-    { s: 17, e: 19, n: 'Educación para el dibujo 1', r: 'T-205' },
-  ],
-  Sábado: [],
-  Domingo: [],
-};
-const DEF_TAGS = [
-  { id: 't1', label: 'Tarea pendiente', color: 'blue' },
-  { id: 't2', label: 'Problema', color: 'purple' },
-  { id: 't3', label: 'Clase libre', color: 'gold' },
-];
-const TAG_COLORS = {
-  blue: { h: '#7C93A8', l: 'Azul' },
-  purple: { h: '#96738F', l: 'Morado' },
-  gold: { h: '#C7A34C', l: 'Dorado' },
-  green: { h: '#7BA87C', l: 'Verde' },
-  coral: { h: '#C4726C', l: 'Coral' },
-  rose: { h: '#E8C4B8', l: 'Rosé' },
-  terracotta: { h: '#B87355', l: 'Terracota' },
-};
-const DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-const DS = { Lunes: 'Lun', Martes: 'Mar', Miércoles: 'Mié', Jueves: 'Jue', Viernes: 'Vie', Sábado: 'Sáb', Domingo: 'Dom' };
-const JSD = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-const today = JSD[new Date().getDay()] || '';
+let weekOffset = 0;
 
-// day_of_week de Postgres: 0=domingo...6=sábado (igual que Date.getDay()).
-const DAY_TO_NUM = { Domingo: 0, Lunes: 1, Martes: 2, Miércoles: 3, Jueves: 4, Viernes: 5, Sábado: 6 };
-const NUM_TO_DAY = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-const COURSE_COLORS = ['#B8D4F1', '#A8D8B9', '#F4C6A5', '#F5B5B5', '#D4B8E8', '#F5E1A8', '#C5E1D4'];
-
-/* ======== HAPTICS ======== */
-const haptic = (p = 8) => { try { navigator.vibrate?.(p); } catch {} };
-const H = { tap: 6, select: 8, save: [10, 40, 10], toggle: 10, check: 12, del: [15, 30, 15], open: 6, close: 5 };
-
-/* ======== STORAGE (solo notas/tags/pendientes -- ver nota arriba) ======== */
-const G = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
-const P = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
-let tags = G('h-tags') || [...DEF_TAGS];
-let notes = G('h-notes') || {};
-let todos = G('h-todos') || [];
-function save() {
-  P('h-tags', tags);
-  P('h-notes', notes);
-  P('h-todos', todos);
-}
-
-/* ======== MATERIAS / EVENTOS: repos + IndexedDB + sync ======== */
-// `ev` sigue siendo el objeto plano {id: {name,day,start,end,room,online,fixed}}
-// que ya esperaba todo el código de render de abajo -- así ese código no
-// se toca. Se recalcula desde los repos con refreshEv().
-let ev = {};
-let activeSchedule = null;
-
-function parseTimeHour(timeStr) {
-  const [h, m] = timeStr.split(':').map(Number);
-  return h + (m || 0) / 60;
-}
-
-function dateForDayHour(dayName, hour) {
-  const dayIdx = DAYS.indexOf(dayName); // 0=Lunes...6=Domingo
-  const jsToday = new Date().getDay(); // 0=Domingo...6=Sábado
-  const mondayBasedToday = jsToday === 0 ? 6 : jsToday - 1;
-  const d = new Date();
-  d.setDate(d.getDate() + (dayIdx - mondayBasedToday));
-  d.setHours(Math.floor(hour), Math.round((hour % 1) * 60), 0, 0);
-  return d;
-}
-
-// Primera vez que esta cuenta abre la app: siembra el horario de
-// ejemplo como courses+class_sessions reales. Si ya tiene un horario
-// (propio o bajado por sync de otro dispositivo), no hace nada -- por
-// eso hay que esperar el primer pull() antes de llamar esto (lo
-// garantiza main.js).
-//
-// refreshEv() puede dispararse más de una vez casi al mismo tiempo (ej.
-// el navigate('/app') explícito del login y el listener de
-// onAuthStateChange, ambos reaccionando al mismo inicio de sesión) --
-// se cachea la promesa para que, sin importar cuántas veces se llame,
-// la siembra de verdad corra una sola vez.
-let ensureSeedPromise = null;
-function ensureSeedData() {
-  if (!ensureSeedPromise) ensureSeedPromise = doEnsureSeedData();
-  return ensureSeedPromise;
-}
-
-async function doEnsureSeedData() {
-  const schedules = await scheduleRepo.list();
-  const existing = schedules.find((s) => s.is_active) || schedules[0];
-  if (existing) return existing;
-
-  const schedule = await scheduleRepo.create({ name: 'Mi horario', is_active: true });
-  const courseByName = new Map();
-  let colorIdx = 0;
-  for (const day of DAYS) {
-    for (const c of DEF_SCHED[day] || []) {
-      let course = courseByName.get(c.n);
-      if (!course) {
-        course = await courseRepo.create({
-          schedule_id: schedule.id,
-          name: c.n,
-          room: c.ol ? null : c.r || null,
-          color: COURSE_COLORS[colorIdx++ % COURSE_COLORS.length],
-        });
-        courseByName.set(c.n, course);
-      }
-      await classSessionRepo.create({
-        course_id: course.id,
-        day_of_week: DAY_TO_NUM[day],
-        start_time: `${String(c.s).padStart(2, '0')}:00`,
-        end_time: `${String(c.e).padStart(2, '0')}:00`,
-      });
-    }
-  }
-  return schedule;
-}
-
-async function refreshEv() {
-  activeSchedule = await ensureSeedData();
-  const courses = await courseRepo.listBySchedule(activeSchedule.id);
-  const courseById = new Map(courses.map((c) => [c.id, c]));
-  const sessions = await classSessionRepo.listByCourses(courses.map((c) => c.id));
-  const events = await eventRepo.listBySchedule(activeSchedule.id);
-
-  const next = {};
-  for (const s of sessions) {
-    const course = courseById.get(s.course_id);
-    if (!course) continue;
-    next[s.id] = {
-      name: course.name,
-      day: NUM_TO_DAY[s.day_of_week],
-      start: parseTimeHour(s.start_time),
-      end: parseTimeHour(s.end_time),
-      room: course.room || '',
-      online: !course.room,
-      fixed: true,
-      _courseId: course.id,
-    };
-  }
-  for (const e of events) {
-    const s = new Date(e.starts_at);
-    const en = new Date(e.ends_at);
-    next[e.id] = {
-      name: e.title,
-      day: NUM_TO_DAY[s.getDay()],
-      start: s.getHours() + s.getMinutes() / 60,
-      end: en.getHours() + en.getMinutes() / 60,
-      room: e.location || '',
-      online: !e.location,
-      fixed: false,
-      _eventId: e.id,
-    };
-  }
-  ev = next;
-}
-
-/* ======== HELPERS ======== */
-function fH(h) {
-  const hh = h % 12 === 0 ? 12 : h % 12;
-  return hh + (h >= 12 ? ' pm' : ' am');
-}
-function toast(m) {
-  const t = document.getElementById('toast');
-  t.textContent = m || 'Guardado';
-  t.classList.add('show');
-  clearTimeout(toast._);
-  toast._ = setTimeout(() => t.classList.remove('show'), 1600);
-}
-function esc(s) {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
-
-/* ======== GRID RANGE ======== */
-function gridRange() {
-  const all = Object.values(ev);
-  if (!all.length) return { gs: 8, ge: 22 };
-  let mn = 24, mx = 0;
-  all.forEach((e) => {
-    if (e.start < mn) mn = e.start;
-    if (e.end > mx) mx = e.end;
-  });
-  return { gs: Math.max(0, mn - 1), ge: Math.min(24, mx + 1) };
-}
-
-/* ======== TODAY CARD ======== */
-function renderToday() {
-  const c = document.getElementById('todayCard');
+/* ======== TODAY CARD + COUNTDOWN ======== */
+function todayGreetingHTML() {
+  const { ev } = getState();
   const h = new Date().getHours();
   let gr = 'Buenos días';
   if (h >= 12 && h < 19) gr = 'Buenas tardes';
@@ -233,33 +40,87 @@ function renderToday() {
   else {
     const f = te[0], l = te[n - 1];
     d = `Tienes <b>${n}</b> clase${n > 1 ? 's' : ''}, de <b>${fH(f.start)}</b> a <b>${fH(l.end)}</b>.`;
-    const cur = te.find((e) => h >= e.start && h < e.end);
+    const h2 = new Date().getHours() + new Date().getMinutes() / 60;
+    const cur = te.find((e) => h2 >= e.start && h2 < e.end);
     if (cur) d += ` Ahora: <b>${esc(cur.name)}</b>.`;
     else {
-      const nx = te.find((e) => e.start > h);
+      const nx = te.find((e) => e.start > h2);
       if (nx) d += ` Siguiente: <b>${esc(nx.name)}</b> a las <b>${fH(nx.start)}</b>.`;
     }
   }
-  c.innerHTML = `<p class="today-greeting">${gr}</p><p class="today-detail">${d}</p>`;
+  return `<p class="today-greeting">${gr}</p><p class="today-detail">${d}</p>`;
+}
+
+function renderToday() {
+  const html = todayGreetingHTML();
+  document.querySelectorAll('#todayCard, #todayCardDesktop').forEach((c) => { if (c) c.innerHTML = html; });
+}
+
+function computeCountdown() {
+  const { ev } = getState();
+  const now = new Date();
+  const h = now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
+  const todays = Object.values(ev).filter((e) => e.day === today).sort((a, b) => a.start - b.start);
+  const current = todays.find((e) => h >= e.start && h < e.end);
+  if (current) {
+    const minsLeft = Math.max(0, Math.round((current.end - h) * 60));
+    return { text: `En clase · termina en ${minsLeft} min`, critical: false };
+  }
+  const next = todays.find((e) => e.start > h);
+  if (next) {
+    const minsUntil = Math.round((next.start - h) * 60);
+    const hrs = Math.floor(minsUntil / 60), mins = minsUntil % 60;
+    const label = hrs > 0 ? `${hrs}h ${mins}min` : `${mins} min`;
+    return { text: `${esc(next.name)} en ${label}`, critical: minsUntil <= 15 };
+  }
+  return { text: 'Terminaste por hoy', critical: false };
+}
+
+let countdownTimer = null;
+function renderCountdown() {
+  const el = document.getElementById('todayCountdown');
+  if (!el) return;
+  const c = computeCountdown();
+  el.innerHTML = `<p class="countdown-text${c.critical ? ' critical' : ''}">${c.text}</p>`;
 }
 
 function renderWeek() {
+  const { ev } = getState();
   const all = Object.values(ev);
   const total = all.length;
   const h = new Date().getHours();
   const di = DAYS.indexOf(today);
-  const done = all.filter((e) => {
-    const ei = DAYS.indexOf(e.day);
-    return ei < di || (ei === di && e.end <= h);
-  }).length;
+  const done = isCurrentWeek()
+    ? all.filter((e) => {
+        const ei = DAYS.indexOf(e.day);
+        return ei < di || (ei === di && e.end <= h);
+      }).length
+    : 0;
   const pct = total ? Math.round((done / total) * 100) : 0;
-  document.getElementById('weekFill').style.width = pct + '%';
-  document.getElementById('weekLbl').textContent = done + ' / ' + total + ' esta semana';
+  const fill = document.getElementById('weekFill');
+  const lbl = document.getElementById('weekLbl');
+  if (fill) fill.style.width = pct + '%';
+  if (lbl) lbl.textContent = done + ' / ' + total + ' esta semana';
+}
+
+/* ======== GRID RANGE ======== */
+function gridRange() {
+  const { ev } = getState();
+  const all = Object.values(ev);
+  if (!all.length) return { gs: 8, ge: 22 };
+  let mn = 24, mx = 0;
+  all.forEach((e) => {
+    if (e.start < mn) mn = e.start;
+    if (e.end > mx) mx = e.end;
+  });
+  return { gs: Math.max(0, mn - 1), ge: Math.min(24, mx + 1) };
 }
 
 /* ======== CALENDAR GRID ======== */
 function renderGrid() {
+  const { ev, allNotes } = getState();
   const grid = document.getElementById('calGrid');
+  if (!grid) return;
   grid.innerHTML = '';
   const { gs, ge } = gridRange();
   const hrs = ge - gs;
@@ -272,7 +133,7 @@ function renderGrid() {
   });
   DAYS.forEach((day, i) => {
     const h = document.createElement('div');
-    h.className = 'col-head' + (day === today ? ' is-today' : '');
+    h.className = 'col-head' + (day === today && isCurrentWeek() ? ' is-today' : '');
     h.dataset.day = day;
     h.style.gridColumn = i + 2;
     h.innerHTML = `<span class="d">${DS[day]}</span>${day}`;
@@ -299,18 +160,19 @@ function renderGrid() {
     b.dataset.id = id;
     b.style.gridColumn = di + 2;
     b.style.gridRow = sr + '/' + er;
+    if (e.color) b.style.setProperty('--terracotta', e.color);
     const loc = e.online ? 'En línea' : e.room || '';
     b.innerHTML =
       `<div><div class="bt">${fH(e.start)}</div><div class="bn">${esc(e.name)}</div></div>` +
       (loc ? `<div class="br">${esc(loc)}</div>` : '') +
       `<span class="tap-hint">›</span>`;
-    const nd = notes[id];
-    if (nd && (nd.text || nd.tag)) {
+    const hasNote = e.fixed
+      ? allNotes.some((n) => n.course_id === e._courseId && n.session_date === e.date)
+      : !!e._eventNotes;
+    if (hasNote) {
       const dot = document.createElement('div');
       dot.className = 'n-dot';
-      const tg = tags.find((t) => t.id === nd.tag);
-      dot.style.background = tg ? TAG_COLORS[tg.color]?.h : 'var(--ink2)';
-      dot.style.color = tg ? TAG_COLORS[tg.color]?.h : 'var(--ink2)';
+      dot.style.background = 'var(--terracotta)';
       b.appendChild(dot);
     }
     b.onclick = () => { haptic(H.tap); openEvSheet(id); };
@@ -330,13 +192,15 @@ function renderGrid() {
     }
   });
   renderNowLine(gs);
+  updateTodayFloatBtn();
 }
 
 function renderNowLine(gs) {
   if (gs === undefined) { const r = gridRange(); gs = r.gs; }
   const grid = document.getElementById('calGrid');
+  if (!grid) return;
   grid.querySelectorAll('.now-line').forEach((n) => n.remove());
-  if (!today) return;
+  if (!today || !isCurrentWeek()) return;
   const di = DAYS.indexOf(today);
   if (di < 0) return;
   const now = new Date();
@@ -355,12 +219,25 @@ function renderNowLine(gs) {
   grid.appendChild(line);
 }
 
+function updateTodayFloatBtn() {
+  const btn = document.getElementById('todayFloatBtn');
+  if (!btn) return;
+  btn.classList.toggle('show', !isCurrentWeek());
+}
+function renderWeekLabel() {
+  const el = document.getElementById('weekLabel');
+  if (el) el.textContent = weekLabelText();
+}
+async function goToWeek(offset) {
+  weekOffset = offset;
+  setWeekOffset(offset);
+  renderWeekLabel();
+  await refreshEv();
+  renderGrid(); renderWeek();
+}
+
 /* ======== SHEETS ======== */
-const backdrop = document.getElementById('backdrop');
 const sheet = document.getElementById('sheet');
-function openSheet() { backdrop.classList.add('open'); sheet.classList.add('open'); haptic(H.open); }
-function closeSheet() { backdrop.classList.remove('open'); sheet.classList.remove('open'); sheet.style.transform = ''; haptic(H.close); }
-backdrop.onclick = closeSheet;
 
 /* --- Swipe-down to close sheet --- */
 (function () {
@@ -391,53 +268,84 @@ backdrop.onclick = closeSheet;
   sheet.addEventListener('pointercancel', end);
 })();
 
-function openEvSheet(id) {
+function tagChipsHTML(activeTagId) {
+  const { allTags } = getState();
+  return (
+    allTags.map((t) => `<div class="chip${activeTagId === t.id ? ' active' : ''}" data-c="cust" data-tid="${t.id}"><i style="background:${t.color}"></i>${esc(t.name)}</div>`).join('') +
+    `<button class="chip-add" id="mTagBtn">+ Crear</button>`
+  );
+}
+
+export function openEvSheet(id) {
+  const { ev } = getState();
   const e = ev[id];
   if (!e) return;
-  const nd = notes[id] || {};
+  if (e.fixed) openCourseDetailSheet(e);
+  else openEventDetailSheet(id, e);
+}
+
+function courseSessionsSummary(courseId) {
+  const { ev } = getState();
+  return Object.values(ev)
+    .filter((x) => x.fixed && x._courseId === courseId)
+    .sort((a, b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day) || a.start - b.start)
+    .map((x) => `${x.day} · ${fH(x.start)}–${fH(x.end)}`)
+    .join(', ');
+}
+
+export function openCourseDetailSheet(e) {
+  const { allCourses, allNotes, allTasks } = getState();
+  const course = allCourses.find((c) => c.id === e._courseId);
+  if (!course) return;
+  const noteForToday = allNotes.find((n) => n.course_id === course.id && n.session_date === e.date);
+  const pendingTasks = allTasks.filter((t) => t.course_id === course.id && !t.done && !t.deleted_at);
+  const courseNotes = allNotes.filter((n) => n.course_id === course.id && !n.deleted_at).sort((a, b) => b.session_date.localeCompare(a.session_date));
+
   sheet.innerHTML = `
     <div class="sheet-handle"></div><button class="sheet-close" id="sc">×</button>
-    <label>Horario</label>
-    <p style="font-size:14px;font-weight:500;margin-bottom:2px">${e.day} · ${fH(e.start)} – ${fH(e.end)}</p>
-    <label>Clase / evento</label>
-    <p style="font-family:'Fraunces',serif;font-style:italic;font-size:20px;font-weight:500;padding-right:30px">${esc(e.name)}</p>
-    ${
-      e.fixed
-        ? `<label>Aula</label><input type="text" id="evRoom" value="${esc(e.room || '')}" placeholder="Vacío = en línea">`
-        : e.room || e.online
-        ? `<p style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--terracotta);margin-top:4px">${e.online ? 'En línea' : esc(e.room)}</p>`
-        : ''
-    }
-    <label>Etiqueta</label>
-    <div class="chip-row" id="chipRow">
-      ${tags.map((t) => `<div class="chip${nd.tag === t.id ? ' active' : ''}" data-c="${t.color}" data-tid="${t.id}"><i style="background:${TAG_COLORS[t.color]?.h || 'var(--ink2)'}"></i>${esc(t.label)}</div>`).join('')}
-      <button class="chip-add" id="mTagBtn">+ Crear</button>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-right:30px">
+      <div>
+        <label>Materia</label>
+        <p style="font-family:'Fraunces',serif;font-style:italic;font-size:20px;font-weight:500">${esc(course.name)}</p>
+        ${course.code ? `<p style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--terracotta)">${esc(course.code)}</p>` : ''}
+      </div>
     </div>
-    <label>Notas</label>
-    <textarea id="noteArea" placeholder="Escribe algo sobre esta clase…">${esc(nd.text || '')}</textarea>
+    <div class="cd-info-row"><span class="cd-icon">📅</span> ${esc(courseSessionsSummary(course.id)) || 'Sin horario recurrente'}</div>
+    <div class="cd-info-row"><span class="cd-icon">📍</span> ${course.room ? esc(course.room) : 'En línea'}</div>
+    <div class="cd-info-row"><span class="cd-icon">👤</span> ${course.professor ? esc(course.professor) : 'Profesor sin registrar'}</div>
+    <div class="cd-info-row"><span class="cd-icon">🎓</span> ${course.credits != null ? course.credits + ' créditos' : 'Créditos sin registrar'}</div>
+
+    <label>Aula (edición rápida)</label>
+    <input type="text" id="evRoom" value="${esc(course.room || '')}" placeholder="Vacío = en línea">
+    <label>Profesor</label>
+    <input type="text" id="evProf" value="${esc(course.professor || '')}">
+
+    <div class="cd-color-row" id="colorRow">
+      ${COURSE_COLORS.map((c) => `<div class="color-opt${course.color === c ? ' sel' : ''}" data-c="${c}" style="background:${c}"></div>`).join('')}
+    </div>
+
+    ${pendingTasks.length ? `<p class="cd-section-title">Tareas pendientes</p>` + pendingTasks.map((t) => `<div class="task-row"><div class="task-body"><p class="task-title">${esc(t.title)}</p>${t.due_at ? `<p class="task-due">Vence ${new Date(t.due_at).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</p>` : ''}</div></div>`).join('') : ''}
+
+    ${courseNotes.length ? `<p class="cd-section-title">Notas</p>` + courseNotes.slice(0, 5).map((n) => `<div class="task-row"><div class="task-body"><p class="task-title">${esc(n.body || '')}</p><p class="task-due">${n.session_date}</p></div></div>`).join('') : ''}
+
+    <label>Etiqueta para hoy</label>
+    <div class="chip-row" id="chipRow">${tagChipsHTML(noteForToday?.tag_id)}</div>
+    <label>Nota de hoy</label>
+    <textarea id="noteArea" placeholder="Escribe algo sobre esta clase…">${esc(noteForToday?.body || '')}</textarea>
+
     <div class="sheet-actions">
-      ${e.fixed ? '' : '<button class="btn-danger" id="delEv">Eliminar</button>'}
+      <button class="btn-danger" id="archiveCourse">Archivar</button>
       <button class="btn-primary" id="saveNote">Guardar</button>
     </div>`;
+
   document.getElementById('sc').onclick = closeSheet;
-  document.getElementById('saveNote').onclick = async () => {
-    const ac = sheet.querySelector('.chip.active');
-    const text = document.getElementById('noteArea').value.trim();
-    const tid = ac ? ac.dataset.tid : null;
-    if (!text && !tid) delete notes[id];
-    else notes[id] = { text, tag: tid };
-    save();
-    if (e.fixed) {
-      const newRoom = document.getElementById('evRoom').value.trim();
-      if (newRoom !== (e.room || '')) {
-        await courseRepo.update(e._courseId, { room: newRoom || null });
-        await refreshEv();
-      }
-    }
-    renderGrid();
-    haptic(H.save);
-    closeSheet();
-    toast();
+  document.getElementById('colorRow').onclick = async (ev2) => {
+    const opt = ev2.target.closest('.color-opt');
+    if (!opt) return;
+    document.querySelectorAll('#colorRow .color-opt').forEach((o) => o.classList.remove('sel'));
+    opt.classList.add('sel');
+    await courseRepo.update(course.id, { color: opt.dataset.c });
+    haptic(H.select);
   };
   sheet.querySelectorAll('.chip[data-tid]').forEach((ch) => {
     ch.onclick = () => {
@@ -448,17 +356,64 @@ function openEvSheet(id) {
     };
   });
   document.getElementById('mTagBtn').onclick = () => { haptic(H.tap); closeSheet(); setTimeout(openTagMgr, 320); };
-  const del = document.getElementById('delEv');
-  if (del) {
-    del.onclick = async () => {
-      await eventRepo.delete(e._eventId);
-      delete notes[id];
-      save();
-      await refreshEv();
-      renderGrid(); renderToday(); renderWeek();
-      haptic(H.del); closeSheet(); toast('Eliminado');
-    };
-  }
+  document.getElementById('saveNote').onclick = async () => {
+    const newRoom = document.getElementById('evRoom').value.trim();
+    const newProf = document.getElementById('evProf').value.trim();
+    const patch = {};
+    if (newRoom !== (course.room || '')) patch.room = newRoom || null;
+    if (newProf !== (course.professor || '')) patch.professor = newProf || null;
+    if (Object.keys(patch).length) await courseRepo.update(course.id, patch);
+
+    const ac = sheet.querySelector('.chip.active');
+    const text = document.getElementById('noteArea').value.trim();
+    const tid = ac ? ac.dataset.tid : null;
+    if (noteForToday) {
+      if (!text && !tid) await noteRepo.delete(noteForToday.id);
+      else await noteRepo.update(noteForToday.id, { body: text || null, tag_id: tid || null });
+    } else if (text || tid) {
+      await noteRepo.create({ course_id: course.id, session_date: e.date, body: text || null, tag_id: tid || null });
+    }
+    await refreshAndRerender();
+    haptic(H.save); closeSheet(); toast();
+  };
+  document.getElementById('archiveCourse').onclick = async () => {
+    const { ev: ev2 } = getState();
+    const sessions = Object.values(ev2).filter((x) => x.fixed && x._courseId === course.id);
+    for (const s of sessions) await classSessionRepo.delete(s._sessionId);
+    await courseRepo.delete(course.id);
+    await refreshAndRerender();
+    haptic(H.del); closeSheet(); toast('Materia archivada');
+  };
+  openSheet();
+}
+
+function openEventDetailSheet(id, e) {
+  const noteText = e._eventNotes || '';
+  sheet.innerHTML = `
+    <div class="sheet-handle"></div><button class="sheet-close" id="sc">×</button>
+    <label>Horario</label>
+    <p style="font-size:14px;font-weight:500;margin-bottom:2px">${e.day} · ${fH(e.start)} – ${fH(e.end)}</p>
+    <label>Evento</label>
+    <p style="font-family:'Fraunces',serif;font-style:italic;font-size:20px;font-weight:500;padding-right:30px">${esc(e.name)}</p>
+    ${e.room || e.online ? `<p style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--terracotta);margin-top:4px">${e.online ? 'En línea' : esc(e.room)}</p>` : ''}
+    <label>Notas</label>
+    <textarea id="noteArea" placeholder="Escribe algo…">${esc(noteText)}</textarea>
+    <div class="sheet-actions">
+      <button class="btn-danger" id="delEv">Eliminar</button>
+      <button class="btn-primary" id="saveNote">Guardar</button>
+    </div>`;
+  document.getElementById('sc').onclick = closeSheet;
+  document.getElementById('saveNote').onclick = async () => {
+    const text = document.getElementById('noteArea').value.trim();
+    await eventRepo.update(e._eventId, { notes: text || null });
+    await refreshAndRerender();
+    haptic(H.save); closeSheet(); toast();
+  };
+  document.getElementById('delEv').onclick = async () => {
+    await eventRepo.delete(e._eventId);
+    await refreshAndRerender();
+    haptic(H.del); closeSheet(); toast('Eliminado');
+  };
   openSheet();
 }
 
@@ -488,8 +443,9 @@ function openNewEvent(preDay, preStart) {
     if (end <= start) { toast('La hora de fin debe ser después del inicio'); haptic([20, 50, 20]); return; }
     const room = document.getElementById('neRoom').value.trim();
     const online = room.toLowerCase() === 'en línea' || room.toLowerCase() === 'en linea';
-    const startsAt = dateForDayHour(day, start);
-    const endsAt = dateForDayHour(day, end);
+    const { activeSchedule } = getState();
+    const startsAt = dateForDayInVisibleWeek(day, start);
+    const endsAt = dateForDayInVisibleWeek(day, end);
     await eventRepo.create({
       schedule_id: activeSchedule.id,
       title: name,
@@ -500,140 +456,56 @@ function openNewEvent(preDay, preStart) {
       recurrence: null,
       notes: null,
     });
-    await refreshEv();
-    renderGrid(); renderToday(); renderWeek();
+    await refreshAndRerender();
     haptic(H.save); closeSheet(); toast('Evento creado');
   };
   openSheet();
 }
 
 function openTagMgr() {
-  const ck = Object.keys(TAG_COLORS);
+  const { allTags } = getState();
   sheet.innerHTML = `
     <div class="sheet-handle"></div><button class="sheet-close" id="sc">×</button>
     <label>Tus etiquetas</label>
     <div id="tagList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-      ${tags.map((t) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;background:var(--surface);transition:var(--theme-t)"><i style="width:10px;height:10px;border-radius:50%;background:${TAG_COLORS[t.color]?.h};flex:0 0 auto"></i><span style="flex:1;font-size:13px;font-weight:600">${esc(t.label)}</span><button data-del="${t.id}" style="border:none;background:none;color:var(--tag-coral);font-size:13px;cursor:pointer;padding:4px 8px">×</button></div>`).join('')}
+      ${allTags.map((t) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;background:var(--surface);transition:var(--theme-t)"><i style="width:10px;height:10px;border-radius:50%;background:${t.color};flex:0 0 auto"></i><span style="flex:1;font-size:13px;font-weight:600">${esc(t.name)}</span><button data-del="${t.id}" style="border:none;background:none;color:var(--tag-coral);font-size:13px;cursor:pointer;padding:4px 8px">×</button></div>`).join('')}
     </div>
     <label>Nueva etiqueta</label>
     <input type="text" id="ntName" placeholder="Nombre de la etiqueta" style="margin-bottom:8px">
     <label>Color</label>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px" id="colorPick">
-      ${ck.map((c) => `<div class="color-opt" data-c="${c}" style="background:${TAG_COLORS[c].h}"></div>`).join('')}
+      ${TAG_COLOR_PALETTE.map((c) => `<div class="color-opt" data-c="${c}" style="background:${c}"></div>`).join('')}
     </div>
     <div class="sheet-actions"><button class="btn-primary" id="ntSave">Agregar etiqueta</button></div>`;
   document.getElementById('sc').onclick = closeSheet;
-  let selC = ck[0];
+  let selC = TAG_COLOR_PALETTE[0];
   document.querySelector(`.color-opt[data-c="${selC}"]`).classList.add('sel');
   document.getElementById('colorPick').onclick = (e) => {
     const o = e.target.closest('.color-opt');
     if (!o) return;
-    document.querySelectorAll('.color-opt').forEach((x) => x.classList.remove('sel'));
+    document.querySelectorAll('#colorPick .color-opt').forEach((x) => x.classList.remove('sel'));
     o.classList.add('sel');
     selC = o.dataset.c;
     haptic(H.select);
   };
-  document.getElementById('ntSave').onclick = () => {
-    const label = document.getElementById('ntName').value.trim();
-    if (!label) { document.getElementById('ntName').style.borderColor = 'var(--tag-coral)'; haptic([20, 50, 20]); return; }
-    tags.push({ id: 't' + Date.now(), label, color: selC });
-    save(); haptic(H.save); closeSheet(); toast('Etiqueta creada');
+  document.getElementById('ntSave').onclick = async () => {
+    const name = document.getElementById('ntName').value.trim();
+    if (!name) { document.getElementById('ntName').style.borderColor = 'var(--tag-coral)'; haptic([20, 50, 20]); return; }
+    await tagRepo.create({ name, color: selC });
+    await refreshEv();
+    haptic(H.save); closeSheet(); toast('Etiqueta creada');
   };
-  document.getElementById('tagList').onclick = (e) => {
+  document.getElementById('tagList').onclick = async (e) => {
     const btn = e.target.closest('[data-del]');
     if (!btn) return;
-    const tid = btn.dataset.del;
-    tags = tags.filter((t) => t.id !== tid);
-    Object.keys(notes).forEach((k) => { if (notes[k].tag === tid) delete notes[k].tag; });
-    save(); haptic(H.del); closeSheet(); renderGrid(); toast('Etiqueta eliminada');
+    await tagRepo.delete(btn.dataset.del);
+    await refreshAndRerender();
+    haptic(H.del); closeSheet(); toast('Etiqueta eliminada');
   };
   openSheet();
 }
 
-/* ======== TODO with swipe (localStorage, sin cambios) ======== */
-const todoInputRow = document.getElementById('todoInputRow');
-const todoInput = document.getElementById('todoInput');
-document.getElementById('showTodoInput').onclick = () => {
-  const isOpen = todoInputRow.classList.contains('open');
-  todoInputRow.classList.toggle('open');
-  haptic(H.tap);
-  if (!isOpen) setTimeout(() => todoInput.focus(), 200);
-};
-function addTodo() {
-  const t = todoInput.value.trim();
-  if (!t) return;
-  todos.unshift({ text: t, done: false });
-  save(); renderTodos(); todoInput.value = ''; haptic(H.save);
-}
-document.getElementById('todoAdd').onclick = addTodo;
-todoInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addTodo(); });
-
-function renderTodos() {
-  const list = document.getElementById('todoList');
-  const empty = document.getElementById('todoEmpty');
-  list.innerHTML = '';
-  if (!todos.length) { empty.style.display = ''; return; }
-  empty.style.display = 'none';
-  todos.forEach((td, i) => {
-    const shell = document.createElement('div');
-    shell.className = 'todo-shell';
-    shell.innerHTML = `
-      <div class="todo-actions-l">✓ Hecho</div>
-      <div class="todo-actions-r">Eliminar</div>
-      <div class="todo-item${td.done ? ' done' : ''}" data-i="${i}">
-        <div class="todo-check${td.done ? ' done' : ''}"></div>
-        <span class="todo-text">${esc(td.text)}</span>
-      </div>`;
-    const item = shell.querySelector('.todo-item');
-    item.querySelector('.todo-check').onclick = (e) => { e.stopPropagation(); todos[i].done = !todos[i].done; save(); renderTodos(); haptic(H.check); };
-    attachTodoSwipe(shell, item, i);
-    list.appendChild(shell);
-  });
-}
-
-function attachTodoSwipe(shell, item, idx) {
-  let sx = 0, sy = 0, dx = 0, dy = 0, drag = false, locked = null;
-  const SWIPE_THRESH = 88;
-  item.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.todo-check')) return;
-    sx = e.clientX; sy = e.clientY; dx = 0; dy = 0; drag = true; locked = null;
-    item.classList.add('dragging');
-  });
-  item.addEventListener('pointermove', (e) => {
-    if (!drag) return;
-    dx = e.clientX - sx; dy = e.clientY - sy;
-    if (locked === null) {
-      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) locked = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
-    }
-    if (locked === 'x') {
-      e.preventDefault?.();
-      item.style.transform = `translateX(${dx}px)`;
-    }
-  }, { passive: false });
-  const end = () => {
-    if (!drag) return;
-    drag = false; item.classList.remove('dragging');
-    if (locked === 'x') {
-      if (dx > SWIPE_THRESH) {
-        item.style.transform = `translateX(100%)`; haptic(H.check);
-        setTimeout(() => { todos[idx].done = !todos[idx].done; save(); renderTodos(); }, 180);
-      } else if (dx < -SWIPE_THRESH) {
-        item.style.transform = `translateX(-100%)`; haptic(H.del);
-        setTimeout(() => { todos.splice(idx, 1); save(); renderTodos(); }, 180);
-      } else {
-        item.style.transform = '';
-      }
-    } else {
-      item.style.transform = '';
-    }
-    dx = 0; dy = 0; locked = null;
-  };
-  item.addEventListener('pointerup', end);
-  item.addEventListener('pointercancel', end);
-  item.addEventListener('pointerleave', end);
-}
-
-/* ======== SYNC STATUS DOT + ENGRANE DE AJUSTES ======== */
+/* ======== SYNC STATUS DOT ======== */
 function renderSyncDot() {
   const dot = document.getElementById('syncDot');
   if (!dot) return;
@@ -641,31 +513,64 @@ function renderSyncDot() {
   onSyncStatusChange((status) => { dot.dataset.status = status; });
 }
 
-/* ======== FAB ======== */
-document.getElementById('fab').onclick = () => { haptic(H.tap); openNewEvent(today || 'Lunes', new Date().getHours()); };
+/* ======== Redibuja todo lo que depende de datos compartidos ======== */
+async function refreshAndRerender() {
+  await refreshEv();
+  renderGrid(); renderToday(); renderWeek(); renderCurrentPanels();
+}
+function renderCurrentPanels() {
+  renderMaterias();
+  renderTasksPanel();
+  renderScheduleHeader();
+  renderTodayExtras();
+}
+function renderTodayExtras() {
+  const { ev, allTasks } = getState();
+  const tasksEl = document.getElementById('todayTasks');
+  const classesEl = document.getElementById('todayClasses');
+  if (tasksEl) {
+    const now = new Date();
+    const endOfDay = new Date(now); endOfDay.setHours(23, 59, 59, 999);
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todays = allTasks.filter((t) => !t.done && !t.deleted_at && t.due_at && new Date(t.due_at) <= endOfDay && new Date(t.due_at) >= startOfDay);
+    tasksEl.innerHTML = todays.length
+      ? todays.map((t) => `<div class="task-row"><div class="task-body"><p class="task-title">${esc(t.title)}</p></div></div>`).join('')
+      : `<p class="tasks-empty">Sin tareas para hoy ✨</p>`;
+  }
+  if (classesEl) {
+    const todays = Object.values(ev).filter((e) => e.day === today).sort((a, b) => a.start - b.start);
+    classesEl.innerHTML = todays.length
+      ? todays.map((e) => `<div class="task-row"><div class="task-body"><p class="task-title">${esc(e.name)}</p><p class="task-due">${fH(e.start)} – ${fH(e.end)}${e.room ? ' · ' + esc(e.room) : ''}</p></div></div>`).join('')
+      : `<p class="tasks-empty">Día libre — sin clases hoy.</p>`;
+  }
+}
 
-/* ======== PARALLAX HEADER ======== */
-const heroTitle = document.querySelector('.hero-left h1');
-let ticking = false;
-window.addEventListener('scroll', () => {
-  if (ticking) return;
-  ticking = true;
-  requestAnimationFrame(() => {
-    const y = Math.max(0, window.scrollY);
-    heroTitle.style.setProperty('--parallax', y * 0.25 + 'px');
-    heroTitle.style.opacity = Math.max(0.3, 1 - y / 180);
-    ticking = false;
-  });
-}, { passive: true });
+/* ======== PARALLAX, PULL TO REFRESH, EXPORT, COMPARTIR ======== */
+function bindParallax() {
+  const heroTitle = document.querySelector('.panel-hoy .hero-left h1');
+  const scroller = document.getElementById('panelHoy');
+  if (!heroTitle || !scroller) return;
+  let ticking = false;
+  scroller.addEventListener('scroll', () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const y = Math.max(0, scroller.scrollTop);
+      heroTitle.style.setProperty('--parallax', y * 0.25 + 'px');
+      heroTitle.style.opacity = Math.max(0.3, 1 - y / 180);
+      ticking = false;
+    });
+  }, { passive: true });
+}
 
-/* ======== PULL-TO-REFRESH ======== */
-(function () {
+function bindPullToRefresh() {
   const ptr = document.getElementById('ptr');
   let sy = 0, pulling = false, dist = 0;
   const THRESH = 70;
   window.addEventListener('touchstart', (e) => {
-    if (window.scrollY > 0) return;
     if (document.querySelector('.sheet.open')) return;
+    const visible = document.querySelector('.app-panel[style*="display: block"], .app-panel[style*="display: flex"]');
+    if (visible && visible.scrollTop > 0) return;
     sy = e.touches[0].clientY; pulling = true; dist = 0;
   }, { passive: true });
   window.addEventListener('touchmove', (e) => {
@@ -684,8 +589,8 @@ window.addEventListener('scroll', () => {
       ptr.classList.add('spinning');
       ptr.style.opacity = 1;
       setTimeout(async () => {
-        await refreshEv();
-        renderToday(); renderWeek(); renderGrid(); renderTodos();
+        await refreshAndRerender();
+        renderCountdown();
         ptr.classList.remove('spinning');
         ptr.style.transform = ''; ptr.style.opacity = 0;
         toast('Actualizado');
@@ -695,39 +600,104 @@ window.addEventListener('scroll', () => {
     }
     dist = 0;
   });
-})();
+}
+
+function bindExport() {
+  document.getElementById('exportBtn')?.addEventListener('click', async () => {
+    haptic(H.tap);
+    const choice = await chooseExportFormat();
+    const { allCourses, ev, activeSchedule } = getState();
+    if (choice === 'png') await exportGridAsPNG();
+    else if (choice === 'ics') exportScheduleAsICS(allCourses, Object.values(ev), activeSchedule);
+  });
+}
+function chooseExportFormat() {
+  return new Promise((resolve) => {
+    sheet.innerHTML = `
+      <div class="sheet-handle"></div><button class="sheet-close" id="sc">×</button>
+      <label>Exportar horario</label>
+      <div class="sheet-actions" style="flex-direction:column">
+        <button class="btn-primary" id="expPng">Como imagen (PNG)</button>
+        <button class="btn-primary" id="expIcs">Como calendario (.ics)</button>
+      </div>`;
+    document.getElementById('sc').onclick = () => { closeSheet(); resolve(null); };
+    document.getElementById('expPng').onclick = () => { closeSheet(); resolve('png'); };
+    document.getElementById('expIcs').onclick = () => { closeSheet(); resolve('ics'); };
+    openSheet();
+  });
+}
+
+function bindShare() {
+  document.getElementById('shareBtn')?.addEventListener('click', async () => {
+    haptic(H.tap);
+    const { activeSchedule, allCourses } = getState();
+    const text = `Mi horario "${activeSchedule?.name || ''}" -- ${allCourses.length} materias. Hecho con Mi Horario.`;
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Mi Horario', text }); } catch {}
+    } else {
+      try { await navigator.clipboard.writeText(text); toast('Copiado al portapapeles'); } catch { toast('No se pudo compartir'); }
+    }
+  });
+}
 
 /* ======== INIT ========
-   Separado en dos: bindLegacyAppOnce() ata los listeners del DOM -- eso
-   sí debe pasar una sola vez en la vida de la página, repetirlo
-   duplicaría handlers. loadAndRenderApp() carga datos y renderiza --
-   eso SÍ debe repetirse cada vez que main.js entra a /app, porque puede
-   ser una usuaria distinta a la de la última vez sin que la pestaña se
-   haya recargado (cerrar sesión + entrar con otra cuenta). */
+   bindLegacyAppOnce() ata los listeners del DOM -- una sola vez en la
+   vida de la página. loadAndRenderApp() carga datos y renderiza -- se
+   repite cada vez que main.js entra a /app (puede ser otra cuenta sin
+   que la pestaña se haya recargado). */
 let domBound = false;
 export function bindLegacyAppOnce() {
   if (domBound) return;
   domBound = true;
   document.getElementById('settingsBtn').onclick = () => navigate('/ajustes/seguridad');
   mountThemeMenu(document.getElementById('themeMenuMount'));
+  bindNav();
+  bindParallax();
+  bindPullToRefresh();
+  bindExport();
+  bindShare();
+  bindMateriasSearch();
+  setCourseClickHandler(openCourseDetailById);
+  setTasksMutatedHandler(refreshAndRerender);
+  document.getElementById('weekPrev').onclick = () => { haptic(H.tap); goToWeek(weekOffset - 1); };
+  document.getElementById('weekNext').onclick = () => { haptic(H.tap); goToWeek(weekOffset + 1); };
+  document.getElementById('todayFloatBtn').onclick = () => { haptic(H.tap); goToWeek(0); };
+  document.getElementById('addEventBtn').onclick = () => { haptic(H.tap); openNewEvent(today || 'Lunes', new Date().getHours()); };
+  document.getElementById('addMateriaBtn').onclick = () => { haptic(H.tap); openAddMateriaSheet(refreshAndRerender); };
+  document.getElementById('addTaskBtn').onclick = () => { haptic(H.tap); openAddTaskSheet(refreshAndRerender); };
+  document.getElementById('switchScheduleBtn').onclick = () => {
+    haptic(H.tap);
+    openScheduleSwitcher(async () => { weekOffset = 0; setWeekOffset(0); resetSeedCache(); await refreshAndRerender(); renderWeekLabel(); });
+  };
   if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('service-worker.js').catch(() => {}));
-  window.addEventListener('sync:data-changed', async () => {
-    await refreshEv();
-    renderGrid(); renderToday(); renderWeek();
-  });
+  window.addEventListener('sync:data-changed', refreshAndRerender);
+  if (countdownTimer) clearInterval(countdownTimer);
+  countdownTimer = setInterval(renderCountdown, 30000);
 }
 
 export async function loadAndRenderApp() {
-  // ensureSeedPromise es una caché para evitar sembrar dos veces en
-  // paralelo DENTRO de una misma sesión de usuaria -- si esta llamada es
-  // para una cuenta distinta a la anterior, hay que soltarla.
-  ensureSeedPromise = null;
+  resetSeedCache();
+  weekOffset = 0;
+  setWeekOffset(0);
   await refreshEv();
-  renderToday(); renderWeek(); renderGrid(); renderTodos();
+  await migrateLocalStorageEntitiesIfNeeded();
+  await refreshEv(); // por si la migración creó tags/notas/tareas nuevas
+  renderToday(); renderWeek(); renderGrid(); renderCountdown();
+  renderWeekLabel();
   renderSyncDot();
+  renderCurrentPanels();
+  setActiveTab('hoy');
 
   if (today) {
     const el = document.querySelector(`.col-head[data-day="${today}"]`);
     if (el) requestAnimationFrame(() => el.scrollIntoView({ inline: 'start', block: 'nearest' }));
   }
 }
+
+export function openCourseDetailById(courseId) {
+  const { ev } = getState();
+  const entry = Object.values(ev).find((x) => x.fixed && x._courseId === courseId);
+  openCourseDetailSheet(entry || { fixed: true, _courseId: courseId, date: new Date().toISOString().slice(0, 10) });
+}
+
+export { refreshAndRerender as afterExternalMutation };

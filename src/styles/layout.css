@@ -1,0 +1,227 @@
+/* ============ LAYOUT RESPONSIVO (Fase 4) ============
+   Mobile (<1024px): tab bar inferior, un panel visible a la vez.
+   Desktop (>=1024px): tri-panel -- rail + materias + semana + tareas,
+   todos visibles a la vez. Sin frameworks: solo grid + media queries. */
+
+#app-shell .page { max-width: none; margin: 0; }
+
+.app-utility-bar {
+  position: fixed;
+  top: calc(14px + env(safe-area-inset-top));
+  right: 16px;
+  z-index: 22;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* la tarjeta "hoy" del panel Semana solo se ve en desktop -- en mobile
+   ya existe su propio tab Hoy dedicado, mostrarla dos veces sería
+   redundante. */
+.today-card-desktop { display: none; }
+
+.app-layout {
+  display: grid;
+  grid-template-areas: 'active';
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+.app-layout > .app-panel { display: none; grid-area: active; min-width: 0; }
+.app-layout[data-tab='hoy'] > .panel-hoy { display: block; }
+.app-layout[data-tab='semana'] > .panel-semana { display: block; }
+.app-layout[data-tab='materias'] > .panel-materias { display: block; }
+.app-layout[data-tab='tareas'] > .panel-tareas { display: block; }
+.panel-rail { display: none; }
+
+/* --- Tab bar (mobile) --- */
+.tab-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  background: var(--glass);
+  border-top: 1px solid var(--glass-border);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  transition: var(--theme-t);
+}
+.tab-bar-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 2px;
+  border: none;
+  background: none;
+  color: var(--ink2);
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: color 0.16s var(--ease-out), transform 0.12s var(--ease-out);
+}
+.tab-bar-btn .tab-icon { font-size: 19px; line-height: 1; }
+.tab-bar-btn:active { transform: scale(0.92); }
+.tab-bar-btn.active { color: var(--terracotta); }
+[data-theme='obsidian-amoled'] .tab-bar-btn.active { text-shadow: var(--glow) var(--terracotta); }
+
+body:has(#app-shell:not([hidden])) { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+
+/* --- Countdown a próxima clase --- */
+.countdown-text {
+  margin: -4px 20px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink2);
+}
+.countdown-text.critical {
+  color: var(--terracotta);
+}
+[data-theme='obsidian-amoled'] .countdown-text.critical {
+  text-shadow: var(--glow) var(--terracotta);
+}
+
+/* --- Panel Materias (galería) --- */
+.materias-search {
+  margin: 0 20px 14px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: var(--surface);
+  font-family: 'Inter', sans-serif;
+  font-size: 13.5px;
+  color: var(--ink);
+  outline: none;
+  width: calc(100% - 40px);
+  transition: border-color 0.18s, var(--theme-t);
+}
+.materias-search:focus { border-color: var(--rose-deep); }
+.materias-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  padding: 0 20px 20px;
+}
+.materia-card {
+  position: relative;
+  border-radius: 16px;
+  padding: 14px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--card-blur);
+  -webkit-backdrop-filter: var(--card-blur);
+  box-shadow: var(--glass-inset), var(--glass-sh);
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.14s var(--ease-out);
+}
+.materia-card:active { transform: scale(0.96); }
+.materia-card .mc-dot { width: 22px; height: 22px; border-radius: 50%; margin-bottom: 10px; }
+.materia-card .mc-code { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink2); }
+.materia-card .mc-name { font-family: 'Fraunces', serif; font-style: italic; font-weight: 500; font-size: 14.5px; margin: 3px 0 6px; line-height: 1.25; }
+.materia-card .mc-meta { font-size: 10.5px; color: var(--ink2); line-height: 1.5; }
+.materia-card .mc-pending {
+  position: absolute; top: 12px; right: 12px;
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+  background: var(--terracotta); color: #fff;
+  font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+}
+.materias-empty { padding: 20px; text-align: center; color: var(--ink2); font-size: 13px; }
+.fab-add-materia {
+  position: fixed; bottom: calc(84px + env(safe-area-inset-bottom)); right: 20px;
+  width: 48px; height: 48px; border-radius: 50%; border: none;
+  background: var(--terracotta); color: #fff; font-size: 22px;
+  box-shadow: 0 6px 20px -4px rgba(0, 0, 0, 0.3); cursor: pointer; z-index: 10;
+}
+
+/* --- Panel Tareas --- */
+.tasks-bucket { padding: 4px 20px 4px; }
+.tasks-bucket-title { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink2); margin: 16px 0 8px; }
+.task-row {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 6px;
+  border-radius: 13px; background: var(--glass); border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  box-shadow: var(--glass-inset), var(--glass-sh);
+}
+.task-row.done .task-title { text-decoration: line-through; color: var(--ink2); }
+.task-check { flex: 0 0 auto; width: 19px; height: 19px; border-radius: 6px; border: 1.5px solid var(--line); background: transparent; cursor: pointer; }
+.task-check.done { background: var(--terracotta); border-color: var(--terracotta); position: relative; }
+.task-check.done::after { content: '✓'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px; }
+.task-body { flex: 1; min-width: 0; }
+.task-course-badge { display: inline-block; font-size: 8.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 6px; border-radius: 6px; margin-bottom: 3px; }
+.task-title { font-size: 13px; font-weight: 500; line-height: 1.3; }
+.task-due { font-size: 10.5px; color: var(--ink2); margin-top: 2px; }
+.tasks-empty { padding: 4px 20px; font-size: 12px; color: var(--ink2); font-style: italic; }
+
+/* --- Schedule header (panel Semana) --- */
+.schedule-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 20px 20px 0; gap: 10px; flex-wrap: wrap; }
+.schedule-header h2 { font-family: 'Fraunces', serif; font-style: italic; font-weight: 500; font-size: 22px; }
+.schedule-header .sh-credits { font-size: 11.5px; color: var(--ink2); margin-top: 2px; }
+.schedule-header-actions { display: flex; gap: 8px; }
+.sh-btn {
+  padding: 8px 13px; border-radius: 11px; border: 1px solid var(--glass-border);
+  background: var(--glass); color: var(--ink); font-size: 12px; font-weight: 600; cursor: pointer;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.sh-btn:active { transform: scale(0.95); }
+
+/* --- Navegación semanal --- */
+.week-nav { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 14px 20px 0; }
+.week-nav-btn { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--glass-border); background: var(--glass); color: var(--ink); font-size: 14px; cursor: pointer; }
+.week-nav-btn:active { transform: scale(0.9); }
+.week-nav-label { font-size: 12.5px; font-weight: 600; color: var(--ink2); min-width: 150px; text-align: center; }
+.today-float-btn {
+  position: fixed; bottom: calc(84px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+  padding: 9px 18px; border-radius: 999px; border: none; background: var(--ink); color: var(--bg);
+  font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  z-index: 12; opacity: 0; pointer-events: none; transition: opacity 0.18s var(--ease-out);
+}
+.today-float-btn.show { opacity: 1; pointer-events: auto; }
+
+/* --- Course detail sheet extras --- */
+.cd-info-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; font-size: 13px; }
+.cd-info-row .cd-icon { width: 18px; text-align: center; opacity: 0.7; }
+.cd-color-row { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.cd-section-title { font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink2); margin: 16px 0 6px; }
+
+/* --- Desktop tri-panel --- */
+@media (min-width: 1024px) {
+  #app-shell .page { max-width: none; }
+  .app-layout {
+    grid-template-columns: 64px 300px 1fr 340px;
+    grid-template-areas: 'rail materias semana tareas';
+    height: 100vh;
+  }
+  .app-layout > .app-panel { grid-area: unset; }
+  .panel-rail { display: flex; grid-area: rail; }
+  .panel-materias { display: flex !important; flex-direction: column; grid-area: materias; border-right: 1px solid var(--line); }
+  .panel-semana { display: block !important; grid-area: semana; }
+  .panel-tareas { display: flex !important; flex-direction: column; grid-area: tareas; border-left: 1px solid var(--line); }
+  .panel-hoy { display: none !important; }
+  .panel-materias, .panel-semana, .panel-tareas { overflow-y: auto; max-height: 100vh; }
+
+  .tab-bar { display: none; }
+  body:has(#app-shell:not([hidden])) { padding-bottom: 0; }
+
+  .fab-add-materia { position: static; margin: 0 20px 14px; width: auto; height: 40px; border-radius: 12px; padding: 0 16px; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 600; box-shadow: none; }
+  .fab-add-materia::after { content: 'Agregar materia'; font-size: 13px; font-family: 'Inter', sans-serif; }
+  .today-float-btn { bottom: 24px; }
+  .cal-wrap { padding-bottom: 40px; }
+  .today-card-desktop { display: block; margin: 20px 20px 0; }
+  .app-utility-bar { top: 16px; right: 20px; }
+}
+
+/* --- Nav rail (solo desktop) --- */
+.nav-rail { flex-direction: column; align-items: center; gap: 4px; padding: 16px 0; border-right: 1px solid var(--line); }
+.nav-rail-btn {
+  width: 40px; height: 40px; border-radius: 12px; border: none; background: none;
+  color: var(--ink2); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background-color 0.16s var(--ease-out), color 0.16s var(--ease-out);
+}
+.nav-rail-btn.active { background: rgba(128, 128, 128, 0.12); color: var(--terracotta); }
+.nav-rail-btn:active { transform: scale(0.9); }

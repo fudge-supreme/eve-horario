@@ -1,4 +1,5 @@
 import './styles/auth.css';
+import './styles/layout.css';
 import './themes/coursicle-soft.css';
 import './themes/liquid-glass.css';
 import './themes/obsidian-amoled.css';
@@ -22,7 +23,7 @@ import { initTheme, pullThemeFromProfile } from './themes/theme.js';
    se elimina; el flag legacy_cleaned_at evita repetir esto en cada carga. */
 (function limpiarDatosLegacy() {
   if (localStorage.getItem('legacy_cleaned_at')) return;
-  const keysNuevoSistema = new Set(['theme', 'migrated_v2', 'sync_last_pull_at', 'pending_writes', 'legacy_cleaned_at']);
+  const keysNuevoSistema = new Set(['theme', 'migrated_v2', 'migrated_v4', 'sync_last_pull_at', 'pending_writes', 'legacy_cleaned_at']);
   Object.keys(localStorage).forEach((k) => {
     if (k.startsWith('sb-') || keysNuevoSistema.has(k)) return;
     localStorage.removeItem(k);

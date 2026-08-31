@@ -345,28 +345,75 @@ footer p{font-family:'Fraunces',serif;font-style:italic;font-size:11.5px;color:v
 <body>
 <div id="auth-shell" hidden></div>
 <div id="app-shell" hidden>
-<div class="page">
-  <header class="hero">
-    <div class="hero-left">
-      <p class="eyebrow">FAD · UNAM</p>
-      <h1>Mi horario</h1>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
-      <span class="sync-dot" id="syncDot" data-status="offline" title="Estado de sincronización"></span>
-      <button class="theme-toggle" id="settingsBtn" aria-label="Ajustes" style="margin-top:0">⚙️</button>
-      <div id="themeMenuMount"></div>
-    </div>
-  </header>
-  <div class="today-card" id="todayCard"></div>
-  <div class="week-row"><div class="week-bar"><div class="week-fill" id="weekFill"></div></div><span class="week-lbl" id="weekLbl"></span></div>
-  <div class="cal-wrap" id="calWrap"><div class="cal-inner"><div class="cal-grid" id="calGrid"></div></div></div>
-  <div class="sec-head"><span class="sec-title">Pendientes</span><button class="add-btn" id="showTodoInput" aria-label="Agregar">+</button></div>
-  <div class="todo-input-row" id="todoInputRow"><input type="text" id="todoInput" placeholder="Escribe un pendiente…"><button id="todoAdd">OK</button></div>
-  <div class="todo-list" id="todoList"></div>
-  <p class="todo-empty" id="todoEmpty" style="display:none">Sin pendientes — buen trabajo ✨</p>
-  <footer><div class="rule"></div><p>una semana, a su tiempo</p></footer>
+<div class="app-utility-bar">
+  <span class="sync-dot" id="syncDot" data-status="offline" title="Estado de sincronización"></span>
+  <div id="themeMenuMount"></div>
+  <button class="theme-toggle" id="settingsBtn" aria-label="Ajustes">⚙️</button>
 </div>
-<button class="fab" id="fab" aria-label="Agregar evento">+</button>
+<div class="app-layout" id="appLayout" data-tab="hoy">
+
+  <nav class="app-panel panel-rail nav-rail" id="navRail">
+    <button class="nav-rail-btn" data-nav="materias" aria-label="Materias" title="Materias">📚</button>
+    <button class="nav-rail-btn" data-nav="hoy" aria-label="Hoy" title="Hoy">☀️</button>
+    <button class="nav-rail-btn" data-nav="tareas" aria-label="Tareas" title="Tareas">✓</button>
+  </nav>
+
+  <div class="app-panel panel-hoy" id="panelHoy">
+    <header class="hero">
+      <div class="hero-left"><p class="eyebrow">FAD · UNAM</p><h1>Hoy</h1></div>
+    </header>
+    <div class="today-card" id="todayCard"></div>
+    <div id="todayCountdown"></div>
+    <div class="sec-head"><span class="sec-title">Tareas de hoy</span></div>
+    <div id="todayTasks" class="tasks-bucket"></div>
+    <div class="sec-head"><span class="sec-title">Clases de hoy</span></div>
+    <div id="todayClasses" class="tasks-bucket"></div>
+    <footer><div class="rule"></div><p>una semana, a su tiempo</p></footer>
+  </div>
+
+  <div class="app-panel panel-materias" id="panelMaterias">
+    <div class="sec-head" style="padding-top:calc(20px + env(safe-area-inset-top))"><span class="sec-title">Materias</span></div>
+    <input class="materias-search" id="materiasSearch" placeholder="Buscar materia…" type="text">
+    <div class="materias-grid" id="materiasGrid"></div>
+    <p class="materias-empty" id="materiasEmpty" hidden>Aún no tienes materias. Agrega la primera con el botón +.</p>
+    <button class="fab-add-materia" id="addMateriaBtn" aria-label="Agregar materia">+</button>
+  </div>
+
+  <div class="app-panel panel-semana" id="panelSemana">
+    <div class="today-card today-card-desktop" id="todayCardDesktop"></div>
+    <div class="schedule-header">
+      <div><h2 id="scheduleName">Mi horario</h2><p class="sh-credits" id="scheduleCredits"></p></div>
+      <div class="schedule-header-actions">
+        <button class="sh-btn" id="switchScheduleBtn">🗂️</button>
+        <button class="sh-btn" id="addEventBtn">+ Evento</button>
+        <button class="sh-btn" id="exportBtn">Exportar</button>
+        <button class="sh-btn" id="shareBtn">Compartir</button>
+      </div>
+    </div>
+    <div class="week-nav">
+      <button class="week-nav-btn" id="weekPrev" aria-label="Semana anterior">‹</button>
+      <span class="week-nav-label" id="weekLabel"></span>
+      <button class="week-nav-btn" id="weekNext" aria-label="Semana siguiente">›</button>
+    </div>
+    <div class="week-row"><div class="week-bar"><div class="week-fill" id="weekFill"></div></div><span class="week-lbl" id="weekLbl"></span></div>
+    <div class="cal-wrap" id="calWrap"><div class="cal-inner"><div class="cal-grid" id="calGrid"></div></div></div>
+    <button class="today-float-btn" id="todayFloatBtn">Hoy</button>
+  </div>
+
+  <div class="app-panel panel-tareas" id="panelTareas">
+    <div class="sec-head" style="padding-top:calc(20px + env(safe-area-inset-top))"><span class="sec-title">Tus tareas</span><button class="add-btn" id="addTaskBtn" aria-label="Agregar">+</button></div>
+    <div id="tasksBuckets"></div>
+  </div>
+
+</div>
+
+<nav class="tab-bar" id="tabBar">
+  <button class="tab-bar-btn" data-tab="hoy"><span class="tab-icon">☀️</span>Hoy</button>
+  <button class="tab-bar-btn" data-tab="semana"><span class="tab-icon">📅</span>Semana</button>
+  <button class="tab-bar-btn" data-tab="materias"><span class="tab-icon">📚</span>Materias</button>
+  <button class="tab-bar-btn" data-tab="tareas"><span class="tab-icon">✓</span>Tareas</button>
+</nav>
+
 <div class="backdrop" id="backdrop"></div>
 <div class="sheet" id="sheet"></div>
 <div class="toast" id="toast"></div>

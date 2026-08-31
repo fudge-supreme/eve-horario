@@ -225,3 +225,88 @@ otra cuenta sin importar qué haya quedado guardado localmente.
 al cargar), sincronizan a `profiles.theme` en el servidor, y la
 migración se probó aislada (sin sesión activa, para no confundirla con
 el comportamiento correcto de "el remoto manda" una vez autenticado).
+
+## Fase 4 — Layout tri-panel/tab-bar + módulos UX (2026-08-31)
+
+**Qué cambió:** la fase más grande de la migración. La app pasó de una
+sola columna (teléfono) a dos layouts reales según el ancho de pantalla,
+con CSS puro (media queries + grid, sin librería):
+
+- **Desktop (≥1024px):** tri-panel -- rail de navegación angosto,
+  sidebar de Materias, columna central con el horario, panel de Tareas.
+  Las tres columnas están visibles a la vez.
+- **Mobile (<1024px):** tab bar inferior con 4 tabs (Hoy / Semana /
+  Materias / Tareas), un panel visible a la vez.
+
+**Capa de datos ampliada:** tareas, tags y notas se movieron de
+`localStorage` a IndexedDB + Supabase (repos `taskRepo`, `tagRepo`,
+`noteRepo`, sobre el mismo patrón de `baseRepo.js`) -- la promesa que
+quedó pendiente desde Fase 2. Una migración de una sola vez
+(`migrated_v4`) convierte cualquier `h-tags`/`h-notes`/`h-todos` que
+haya quedado de la ventana Fase 2-3 en filas reales.
+
+**Módulos nuevos:**
+- Countdown a la próxima clase en la tarjeta "Hoy" (recalcula cada 30s,
+  cambia de color cuando faltan ≤15 min).
+- Vista Materias: galería de tarjetas con color, código, profesor,
+  aula, y contador de tareas pendientes -- + hoja para agregar una
+  materia nueva con horario recurrente (puede llevar varias sesiones).
+- Course detail sheet enriquecido: horario recurrente resumido, aula,
+  profesor, créditos, tareas pendientes de esa materia, notas
+  recientes, selector de color, botón Archivar.
+- Tracker de tareas: 4 cubetas (Hoy/Mañana/Esta semana/Después), badge
+  del código de materia con su color, filtro por materia.
+- Multi-horario: crear, renombrar, archivar y activar horarios --
+  materias y sesiones quedan aisladas por horario; las tareas son
+  globales a la cuenta (así lo define el schema de Fase 1, no por
+  horario).
+- Navegación semanal real: flechas ← →, con fechas de verdad (ya no
+  "siempre la semana actual") y botón flotante "Hoy" que aparece solo
+  cuando la semana visible no es la de hoy.
+- Header del horario activo: nombre + suma de créditos + botones
+  Evento/Exportar/Compartir.
+- Exportar como PNG (`html2canvas`) o `.ics` (RRULE semanal para
+  materias recurrentes, evento único para eventos sueltos).
+
+**Arquitectura interna:** para evitar un ciclo de imports entre
+`legacy-app.js` (que monta las vistas nuevas) y los módulos nuevos
+(`src/app/materias.js`, `tasks.js`, `schedules.js`), el estado y la
+carga de datos compartida se movieron a `src/app/state.js`, y los
+helpers puros a `src/app/shared.js` -- ninguno de los módulos nuevos
+importa de `legacy-app.js`; donde hacía falta que legacy-app.js
+reaccionara a algo (ej. tocar una tarjeta de materia), se usa un
+patrón de callback registrado una vez, no un import circular.
+
+**2 bugs reales encontrados probando en el navegador:**
+1. Los repos de Fase 2 no filtraban lecturas de IndexedDB por
+   `user_id` -- al probar con una cuenta semilla en el mismo navegador
+   donde antes había otra cuenta de prueba, su horario mostró materias
+   ajenas. Corregido en `baseRepo.js` (ver nota de Fase 3 arriba, lo
+   detecté ahí pero lo confirmo de nuevo aquí porque esta fase depende
+   fuertemente de listas por usuaria).
+2. La hoja de "Agregar materia" repintaba el formulario completo cada
+   vez que se agregaba un horario recurrente, borrando nombre/código/
+   profesor/aula ya escritos. Corregido para que agregar un horario
+   solo actualice la lista de horarios, no todo el formulario.
+
+**Verificado en vivo, con una cuenta nueva de principio a fin:**
+signup → horario sembrado con 8 materias → abrir detalle de materia →
+editar aula/profesor → agregar tarea con materia y fecha (llegó
+correctamente a la cubeta "Hoy" con su badge de color) → marcar tarea
+hecha → navegar semanas (adelante y con el botón "Hoy" de regreso) →
+agregar materia nueva con 2 horarios (con el bug de arriba encontrado y
+corregido) → exportar a `.ics` (contenido verificado: RRULE correcto,
+horas convertidas bien a UTC) → exportar a PNG (no truena, genera un
+canvas válido) → crear y activar un segundo horario (materias
+correctamente aisladas entre horarios, tareas correctamente
+compartidas) → probado también en viewport mobile completo (las 4
+tabs, tab bar, todo funcionando).
+
+**No verificado / pendiente:** compartir (`Compartir`) usa
+`navigator.share` con fallback a portapapeles -- no lo probé a fondo
+porque este entorno de pruebas no tiene esas APIs disponibles de forma
+confiable. El screenshot del PNG exportado no se pudo inspeccionar
+visualmente (este entorno de pruebas no permite recuperar archivos
+descargados) -- el código corre sin errores y genera un canvas con
+contenido, pero vale la pena que lo pruebes tú mismo con un click real
+antes de darlo por bueno al 100%.
