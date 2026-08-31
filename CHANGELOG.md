@@ -98,3 +98,70 @@ vía la API REST con las dos usuarias del seed:
 - el trigger de auto-creación dejó `profiles.theme = 'coursicle-soft'`
   (el default nuevo) y `notification_prefs` con sus valores por default,
   sin que el seed los insertara a mano.
+
+## Fase 2 — Auth + sync (2026-08-31)
+
+**Qué cambió:** el `<script>` de 400 líneas que vivía dentro de
+`index.html` se movió a módulos ES6 reales (`src/`). Arriba de eso se
+construyó:
+
+- **Auth completa**: `/landing`, `/signup`, `/login` (con modo magic
+  link), `/recuperar`, `/nueva-contrasena`, `/ajustes/seguridad` (cambiar
+  contraseña pidiendo la actual, cambiar correo, cerrar sesión) — todo
+  con hash routing propio (`src/router.js`), sin librería.
+- **Capa de datos offline-first**: IndexedDB vía `idb` (`src/data/db.js`)
+  espejo de `schedules`/`courses`/`class_sessions`/`events`, con
+  repositorios por entidad (`src/data/repositories/`) que exponen
+  `.list()/.get()/.create()/.update()/.delete()` — la UI nunca toca
+  IndexedDB o Supabase directo.
+- **Motor de sync** (`src/data/sync.js`): push con debounce + backoff
+  exponencial, pull al abrir/reconectar/cada 5 min, Realtime vía
+  websocket, y merge last-write-wins por `updated_at`. Dot de estado en
+  el header (`src/data/syncStatus.js`).
+- **Decisión de alcance** (confirmada contigo antes de empezar): por
+  ahora *solo* materias (`courses`+`class_sessions`) y eventos sueltos
+  pasan por repos+sync. Notas, tags y pendientes se quedan en
+  `localStorage` tal cual hasta Fase 4, que de todos modos reconstruye
+  esa UI desde cero — migrarlos ahora habría sido trabajo desechable.
+
+**Verificado en vivo, no solo escrito** — encontré y arreglé 5 bugs
+reales probando de punta a punta contra el stack local:
+1. `class_sessions` no tenía `created_at` pero el repo genérico se lo
+   mandaba a todas las tablas por igual → se agregó la columna
+   (migración 003) en vez de meter un caso especial en el repo.
+2. Dos disparadores casi simultáneos del mismo login (el `navigate()`
+   del formulario y el listener de `onAuthStateChange`) podían sembrar
+   el horario por default dos veces en paralelo → la siembra ahora
+   cachea su propia promesa.
+3. Al cambiar de cuenta sin recargar la pestaña, la app no volvía a
+   cargar los datos de la nueva usuaria (un flag de "ya inicialicé" que
+   nunca se reseteaba) → se separó "atar los listeners del DOM" (una
+   vez) de "cargar y renderizar datos" (cada vez que cambia la usuaria).
+4. Re-autenticarse en Ajustes de Seguridad (para verificar la contraseña
+   actual) disparaba el mismo evento que un login real, lo que
+   re-renderizaba la pantalla a medio formulario y se comía el mensaje
+   de éxito → el listener global ahora sólo reacciona cuando la
+   identidad de la usuaria realmente cambia.
+5. Los links de magic link / reset de contraseña redirigían al puerto
+   3000 (el default de `supabase init`) en vez de a la app real →
+   `supabase/config.toml` ahora incluye el puerto de Vite en la lista de
+   redirects permitidos.
+
+Con los fixes, probado end-to-end contra Mailpit (el capturador de
+correo local) simulando abrir los links de verdad: signup, login,
+magic link, reset de contraseña, cambio de contraseña con
+re-autenticación, y cerrar sesión — todos correctos. También probé
+Realtime cambiando una materia directo en la base de datos (simulando
+"otro dispositivo") y confirmé que apareció sola en la pantalla ya
+abierta, sin recargar — el escenario "editas materia, abres en laptop,
+aparece" que pediste como criterio de esta fase.
+
+**Sin verificar todavía:** el escenario con dos pestañas reales del
+mismo navegador no prueba sync de verdad (comparten el mismo
+IndexedDB/localStorage por origen) — por eso lo verifiqué simulando el
+otro dispositivo directo en la base. Falta probarlo con un dispositivo
+físico distinto de verdad.
+
+**Pendiente, no bloqueante:** la imagen de vista previa de la landing
+(`/landing-preview.png`) no existe todavía — se deja para Fase 6, que es
+donde se pule esa pantalla.

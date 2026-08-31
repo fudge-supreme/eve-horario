@@ -1,0 +1,217 @@
+/* Pantallas de auth (landing, signup, login, recuperar, nueva contraseña,
+   ajustes de seguridad). Reutilizan las variables del tema activo
+   (--bg, --ink, --terracotta, etc.) definidas en index.html, así que
+   cuando llegue el switcher de temas (Fase 3) heredan el cambio gratis. */
+.auth-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: calc(24px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom));
+  background: var(--bg);
+  transition: var(--theme-t);
+}
+.auth-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--card-blur);
+  -webkit-backdrop-filter: var(--card-blur);
+  border-radius: 24px;
+  box-shadow: var(--glass-inset), var(--glass-sh);
+  padding: 28px 24px;
+  animation: slideUp 0.5s var(--ease-out) both;
+}
+.auth-eyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--terracotta);
+  margin-bottom: 6px;
+  text-align: center;
+}
+.auth-title {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: 26px;
+  text-align: center;
+  margin-bottom: 6px;
+}
+.auth-subtitle {
+  font-size: 13px;
+  color: var(--ink2);
+  text-align: center;
+  margin-bottom: 22px;
+  line-height: 1.5;
+}
+.auth-field {
+  margin-bottom: 14px;
+}
+.auth-field label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink2);
+  margin-bottom: 5px;
+}
+.auth-field input {
+  width: 100%;
+  padding: 12px 13px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: var(--surface);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.18s, var(--theme-t);
+}
+.auth-field input:focus {
+  border-color: var(--rose-deep);
+}
+.auth-hint {
+  font-size: 11px;
+  color: var(--ink2);
+  margin-top: 4px;
+}
+.auth-btn-primary {
+  width: 100%;
+  padding: 13px;
+  border-radius: 14px;
+  border: none;
+  background: var(--terracotta);
+  color: #f5efe8;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 14px -3px rgba(184, 115, 85, 0.4);
+  transition: transform 0.12s var(--ease-out), opacity 0.18s;
+}
+.auth-btn-primary:active {
+  transform: scale(0.97);
+}
+.auth-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: default;
+  transform: none;
+}
+.auth-btn-secondary {
+  width: 100%;
+  padding: 13px;
+  border-radius: 14px;
+  border: 1px solid var(--glass-border);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.12s var(--ease-out);
+}
+.auth-btn-secondary:active {
+  transform: scale(0.97);
+}
+.auth-links {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+.auth-link {
+  background: none;
+  border: none;
+  font-family: 'Inter', sans-serif;
+  font-size: 12.5px;
+  color: var(--terracotta);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px;
+}
+.auth-error {
+  background: rgba(196, 114, 108, 0.1);
+  border: 1px solid rgba(196, 114, 108, 0.3);
+  color: var(--tag-coral);
+  font-size: 12.5px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+.auth-success {
+  background: rgba(123, 168, 124, 0.12);
+  border: 1px solid rgba(123, 168, 124, 0.35);
+  color: var(--tag-green);
+  font-size: 12.5px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+.landing-hero {
+  max-width: 420px;
+  text-align: center;
+  margin-bottom: 24px;
+}
+.landing-hero img {
+  width: 100%;
+  max-width: 260px;
+  border-radius: 20px;
+  box-shadow: var(--glass-sh);
+  margin: 18px auto 0;
+  display: block;
+}
+.landing-hero h1 {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: 34px;
+  line-height: 1.1;
+  margin-bottom: 10px;
+}
+.landing-hero p {
+  font-size: 14px;
+  color: var(--ink2);
+  line-height: 1.5;
+}
+.landing-actions {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* --- dot de estado de sync en el header --- */
+.sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  transition: background-color 0.25s var(--ease-out);
+}
+.sync-dot[data-status='synced'] {
+  background: var(--tag-green);
+}
+.sync-dot[data-status='syncing'] {
+  background: var(--tag-gold);
+  animation: syncPulse 1s ease-in-out infinite;
+}
+.sync-dot[data-status='offline'] {
+  background: var(--ink2);
+}
+.sync-dot[data-status='error'] {
+  background: var(--tag-coral);
+}
+@keyframes syncPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
