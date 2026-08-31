@@ -22,6 +22,7 @@ import { renderTasksPanel, openAddTaskSheet, setTasksMutatedHandler } from './ap
 import { openScheduleSwitcher, renderScheduleHeader } from './app/schedules.js';
 import { exportGridAsPNG, exportScheduleAsICS } from './app/export.js';
 import { setActiveTab, bindNav } from './app/nav.js';
+import { maybeShowPushPrompt } from './app/push.js';
 
 let weekOffset = 0;
 
@@ -692,6 +693,12 @@ export async function loadAndRenderApp() {
     const el = document.querySelector(`.col-head[data-day="${today}"]`);
     if (el) requestAnimationFrame(() => el.scrollIntoView({ inline: 'start', block: 'nearest' }));
   }
+
+  // Hasta que exista onboarding real (Fase 6), este es el disparador de
+  // "post-onboarding": la primera vez que /app carga tras iniciar
+  // sesión. Con un pequeño delay para no competir con las animaciones
+  // de entrada.
+  setTimeout(() => maybeShowPushPrompt(), 1200);
 }
 
 export function openCourseDetailById(courseId) {

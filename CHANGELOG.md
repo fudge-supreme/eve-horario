@@ -310,3 +310,73 @@ visualmente (este entorno de pruebas no permite recuperar archivos
 descargados) -- el código corre sin errores y genera un canvas con
 contenido, pero vale la pena que lo pruebes tú mismo con un click real
 antes de darlo por bueno al 100%.
+
+## Fase 5 — Notificaciones push (2026-08-31)
+
+**Qué se construyó:**
+- `npm run vapid` (`scripts/generate-vapid.js`) genera el par de llaves
+  VAPID e imprime instrucciones exactas de dónde pegar cada una.
+- Flujo de activación: modal "¿Quieres que te avisemos?" (una sola vez
+  por cuenta, disparado tras el primer login -- el punto de enganche
+  real para Fase 6, que es cuando exista onboarding de verdad) →
+  `Notification.requestPermission()` → `PushSubscription` → upsert a
+  `push_subscriptions`.
+- `public/service-worker.js`: handlers `push` (muestra la notificación
+  con el payload de la Edge Function) y `notificationclick` (enfoca una
+  pestaña existente o abre una nueva, y le manda la URL de destino).
+- `supabase/functions/dispatch-reminders/index.ts`: Deno + `web-push`.
+  Revisa clases cuyo próximo horario menos `class_reminder_minutes` cae
+  en los próximos 5 minutos, y tareas que vencen "mañana en la noche"
+  (8pm del día anterior) o "hoy en la mañana" (8am), respetando
+  `quiet_hours` de cada usuaria. Borra suscripciones que el proveedor
+  push reporta como muertas (410/404).
+- Cron cada 5 min vía `pg_cron` + `pg_net` (migración 006) -- la URL de
+  la función y un secreto compartido (`CRON_SECRET`, que la función
+  exige en el header `x-cron-secret` porque corre con
+  `verify_jwt = false`) viven en Supabase Vault, no hardcodeados en la
+  migración.
+- `/ajustes/notificaciones`: activar/desactivar en este dispositivo,
+  minutos de aviso antes de clase, toggles de recordatorio de tareas,
+  horas de silencio.
+
+**2 bugs reales encontrados y corregidos probando:**
+1. `navigator.serviceWorker.ready` nunca resuelve si el Service Worker
+   no llega a activarse -- en este entorno de pruebas nunca activa
+   (limitación conocida del sandbox, arrastrada desde Fase 0), y sin
+   límite de tiempo eso colgaba **todo** el flujo del modal de
+   activación para siempre, en cualquier navegador donde el SW fallara
+   por la razón que sea. Se le puso un timeout de 4s con fallback.
+2. La key de localStorage "ya se preguntó por notificaciones" no debía
+   marcarse cuando la razón es "sin soporte" -- en iOS, `PushManager`
+   solo existe DESPUÉS de instalar la PWA. Con el bug, una usuaria que
+   visita en Safari normal primero (sin soporte, se marca "ya
+   preguntado") y luego instala la PWA (ya con soporte) nunca vería el
+   modal. Corregido para reintentar en cada carga hasta que de verdad
+   se le pregunte.
+
+**Verificado en vivo:** la Edge Function corrida directamente contra el
+stack local -- rechaza secretos incorrectos (401), corre limpio sin
+coincidencias, y encuentra correctamente una clase de prueba armada
+para caer justo en la ventana de 5 minutos (`matches:1`). Con una
+suscripción falsa insertada a mano, confirmé que el intento de envío
+sí se ejecuta y que un error (aunque no haya sido específicamente un
+410) se loggea sin tronar la función. El modal de activación, el
+manejo de permiso denegado, y la pantalla de preferencias (guardado
+verificado en el servidor) se probaron de punta a punta en el
+navegador.
+
+**No verificado:** no pude confirmar la recepción real de una
+notificación push -- este entorno de pruebas no tiene permisos de
+notificación reales del sistema operativo (`Notification.permission`
+está en `"denied"` de forma permanente aquí). Toda la plomería alrededor
+de eso sí está probada (suscripción, upsert, consulta de la Edge
+Function, intento de envío, manejo de errores) -- lo único que falta es
+que tú lo pruebes en un dispositivo real con permisos de verdad.
+
+**Gap encontrado, fuera de alcance de esta fase:** el Service Worker
+solo precachea los archivos estáticos de `public/` -- no incluye los
+bundles con hash que genera `vite build` (`assets/index-XXXX.js` etc.),
+así que el "funciona sin internet desde el segundo uso" de la app
+instalada no está completo todavía. No lo arreglé aquí porque es un
+problema de caché de la app en general, no de notificaciones -- lo
+dejo anotado para no perderlo de vista.

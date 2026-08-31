@@ -43,12 +43,14 @@ export async function renderAjustesSeguridad(container) {
 
         <button class="auth-btn-primary" id="signOutBtn" style="background:var(--tag-coral)">Cerrar sesión</button>
         <div class="auth-links">
+          <button class="auth-link" id="notifLink">Notificaciones</button>
           <button class="auth-link" id="backBtn">Volver</button>
         </div>
       </div>
     </div>`;
 
   container.querySelector('#backBtn').onclick = () => navigate('/app');
+  container.querySelector('#notifLink').onclick = () => navigate('/ajustes/notificaciones');
 
   const pwForm = container.querySelector('#pwForm');
   const pwMsg = container.querySelector('#pwMsg');

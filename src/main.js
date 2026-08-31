@@ -13,6 +13,7 @@ import { renderLogin } from './screens/login.js';
 import { renderRecuperar } from './screens/recuperar.js';
 import { renderNuevaContrasena } from './screens/nuevaContrasena.js';
 import { renderAjustesSeguridad } from './screens/ajustesSeguridad.js';
+import { renderAjustesNotificaciones } from './screens/ajustesNotificaciones.js';
 import { bindLegacyAppOnce, loadAndRenderApp } from './legacy-app.js';
 import { initTheme, pullThemeFromProfile } from './themes/theme.js';
 
@@ -33,10 +34,21 @@ import { initTheme, pullThemeFromProfile } from './themes/theme.js';
 
 initTheme();
 
+// Al tocar una notificación push, el Service Worker enfoca esta
+// pestaña y manda la URL a la que debe navegar (ver public/service-worker.js).
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data?.type === 'notification-click' && event.data.url) {
+      const hash = event.data.url.replace(/^\/?#?/, '');
+      navigate('/' + hash.replace(/^\//, ''));
+    }
+  });
+}
+
 const authShell = document.getElementById('auth-shell');
 const appShell = document.getElementById('app-shell');
 
-const PROTECTED_ROUTES = new Set(['/app', '/ajustes/seguridad']);
+const PROTECTED_ROUTES = new Set(['/app', '/ajustes/seguridad', '/ajustes/notificaciones']);
 const PUBLIC_SCREENS = {
   '/landing': renderLanding,
   '/signup': renderSignup,
@@ -85,6 +97,8 @@ async function guardedRender(path) {
       authShell.hidden = true;
       bindLegacyAppOnce();
       await loadAndRenderApp();
+    } else if (path === '/ajustes/notificaciones') {
+      showAuthScreen(renderAjustesNotificaciones);
     } else {
       showAuthScreen(renderAjustesSeguridad);
     }
@@ -100,7 +114,7 @@ async function guardedRender(path) {
   showAuthScreen(PUBLIC_SCREENS[path] || renderLanding);
 }
 
-['/landing', '/signup', '/login', '/recuperar', '/nueva-contrasena', '/app', '/ajustes/seguridad'].forEach((path) => {
+['/landing', '/signup', '/login', '/recuperar', '/nueva-contrasena', '/app', '/ajustes/seguridad', '/ajustes/notificaciones'].forEach((path) => {
   register(path, () => guardedRender(path));
 });
 setNotFound(() => navigate('/landing'));

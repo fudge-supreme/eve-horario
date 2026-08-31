@@ -384,8 +384,21 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
-# [edge_runtime.secrets]
-# secret_key = "env(SECRET_VALUE)"
+# Secretos que dispatch-reminders necesita en local (Fase 5). Cada
+# env(...) se resuelve contra supabase/.env al correr `supabase start`
+# -- sin esto, ningún secreto llega a la función sin importar qué haya
+# en ese archivo.
+[edge_runtime.secrets]
+VAPID_PUBLIC_KEY = "env(VAPID_PUBLIC_KEY)"
+VAPID_PRIVATE_KEY = "env(VAPID_PRIVATE_KEY)"
+VAPID_SUBJECT = "env(VAPID_SUBJECT)"
+CRON_SECRET = "env(CRON_SECRET)"
+
+# dispatch-reminders (Fase 5) la dispara pg_cron, no una usuaria con
+# sesión -- no hay JWT de usuaria que verificar. Se protege en cambio
+# con el secreto compartido CRON_SECRET (ver supabase/.env.example).
+[functions.dispatch-reminders]
+verify_jwt = false
 
 [analytics]
 enabled = true

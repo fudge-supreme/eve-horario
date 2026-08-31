@@ -29,6 +29,61 @@ supabase stop      # los apaga
 Copia `.env.example` a `.env` y llena `VITE_SUPABASE_URL` /
 `VITE_SUPABASE_ANON_KEY` con lo que imprima `supabase start` en la terminal.
 
+### Notificaciones push (VAPID)
+
+```bash
+npm run vapid     # genera un par de llaves VAPID nuevo, con instrucciones
+```
+
+El script imprime exactamente qué pegar en `.env` (la llave pública) y qué
+correr para subir la privada como secreto de Supabase. Para desarrollo
+local, además de `.env` necesitas `supabase/.env` (copia
+`supabase/.env.example`) con las mismas llaves más `CRON_SECRET` (una
+cadena larga al azar — protege la Edge Function de que cualquiera en
+internet la dispare a mano). Ninguno de los dos `.env` se sube al repo.
+
+Después de llenar `supabase/.env`, reinicia el stack para que la Edge
+Function los recoja:
+
+```bash
+supabase stop && supabase start
+```
+
+**Para producción** (proyecto Supabase real, no local):
+
+```bash
+supabase secrets set VAPID_PUBLIC_KEY=...
+supabase secrets set VAPID_PRIVATE_KEY=...
+supabase secrets set VAPID_SUBJECT=mailto:tu-correo@ejemplo.com
+supabase secrets set CRON_SECRET=...
+supabase functions deploy dispatch-reminders
+```
+
+El cron que dispara `dispatch-reminders` cada 5 minutos vive en la
+migración `006_dispatch_reminders_cron.sql`, guardado en Supabase Vault
+(no hardcodeado). Apunta por default al stack **local**
+(`http://127.0.0.1:54321/...`) — al desplegar a producción, actualiza
+esos dos valores de Vault a la URL real de tu proyecto y al mismo
+`CRON_SECRET` de arriba:
+
+```sql
+select vault.update_secret(
+  (select id from vault.secrets where name = 'dispatch_reminders_url'),
+  'https://TU-PROYECTO.supabase.co/functions/v1/dispatch-reminders'
+);
+select vault.update_secret(
+  (select id from vault.secrets where name = 'cron_secret'),
+  'EL-MISMO-CRON_SECRET-QUE-PUSISTE-CON-SUPABASE-SECRETS-SET'
+);
+```
+
+**Notificaciones en iPhone:** iOS solo permite notificaciones push a
+sitios que están **instalados como PWA** (agregados a pantalla de
+inicio, ver más abajo) y requiere **iOS 16.4 o más nuevo**. El permiso
+no se puede pedir desde una pestaña normal de Safari — la app detecta
+esto sola y no muestra el modal de activación hasta que se abre desde
+el ícono instalado.
+
 ## Publicar en GitHub Pages
 
 1. Crea un repositorio nuevo en GitHub (puede ser público o privado con Pages habilitado).
@@ -48,22 +103,11 @@ Copia `.env.example` a `.env` y llena `VITE_SUPABASE_URL` /
 4. Toca **"Agregar a pantalla de inicio"**.
 5. Listo — el ícono queda en su pantalla de inicio y abre a pantalla completa, sin barra del navegador.
 
-## Editar el horario
+## Editar el horario, materias, notas y tareas
 
-Todos los datos del horario viven en un solo bloque al inicio del `<script>` en `index.html`,
-dentro del objeto `schedule`. Cada materia es un objeto con hora de inicio/fin (en formato 24h),
-nombre, y `room` (aula) o `online: true` si es en línea.
-
-## Notas y etiquetas
-
-Al tocar cualquier clase en el calendario se abre una ficha donde se puede escribir una nota
-y marcarla con una etiqueta de color:
-
-- 🔵 Azul — tarea pendiente
-- 🟣 Morado — problema con la materia
-- 🟡 Dorado — clase libre / no segura si habrá clase
-
-Las notas se guardan automáticamente en el almacenamiento local del navegador de su teléfono
-(`localStorage`), por lo que **solo viven en ese dispositivo** — no se sincronizan a otro
-teléfono ni a la nube. Si en algún momento borra los datos de navegación de Safari para ese
-sitio, las notas se pierden. No es necesario tener internet para leerlas o escribirlas.
+Ya no se edita código para esto — todo se hace desde la app: crear cuenta,
+agregar materias (con su horario recurrente) desde la vista Materias,
+tocar cualquier clase para anotarle una nota o etiqueta, y agregar tareas
+desde el panel de Tareas. Todo sincroniza entre dispositivos con la misma
+cuenta (ver `CHANGELOG.md` para el detalle de cómo se construyó cada
+parte).

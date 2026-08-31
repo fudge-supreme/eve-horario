@@ -1,4 +1,4 @@
-const CACHE_NAME = "mi-horario-v4";
+const CACHE_NAME = "mi-horario-v5";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -39,6 +39,44 @@ self.addEventListener("fetch", (event) => {
           return response;
         })
         .catch(() => cached);
+    })
+  );
+});
+
+// Push: dispatch-reminders (Edge Function, Fase 5) manda un payload
+// JSON {title, body, url}. Si el payload no se puede leer (o no llega
+// ninguno), se muestra un mensaje genérico para no fallar en silencio.
+self.addEventListener("push", (event) => {
+  let payload = { title: "Mi Horario", body: "Tienes un recordatorio nuevo.", url: "/#/app" };
+  try {
+    if (event.data) payload = { ...payload, ...event.data.json() };
+  } catch {
+    // el payload no era JSON válido -- se usa el genérico de arriba
+  }
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: "./icons/icon-192.png",
+      badge: "./icons/icon-192.png",
+      data: { url: payload.url || "/#/app" },
+    })
+  );
+});
+
+// Al tocar la notificación: si ya hay una pestaña de la app abierta, la
+// enfoca y navega ahí adentro; si no, abre una nueva.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || "/#/app";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientsList) => {
+      for (const client of clientsList) {
+        if ("focus" in client) {
+          client.postMessage({ type: "notification-click", url: targetUrl });
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(targetUrl);
     })
   );
 });
