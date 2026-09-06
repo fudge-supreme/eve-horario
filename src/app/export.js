@@ -4,10 +4,26 @@
 import { toast } from './shared.js';
 
 export async function exportGridAsPNG() {
+  // .cal-wrap recorta el grid a los ~2 días que caben en pantalla (es
+  // quien scrollea horizontalmente) y .col-head usa position:sticky
+  // para quedarse fija arriba al hacer scroll -- ambas cosas confunden
+  // a html2canvas si se le pide capturar más ancho del que cabe en la
+  // caja visible: sticky se congela en una esquina y el resto sale en
+  // blanco. Se le quita el recorte y el sticky un instante, solo para
+  // la captura, y se regresa todo a su estado normal después.
+  const wrap = document.getElementById('calWrap');
+  const target = document.getElementById('calGrid');
+  const stickyHeads = target.querySelectorAll('.col-head');
+  const prevWrapOverflow = wrap.style.overflow;
+  const prevStickyPos = Array.from(stickyHeads).map((h) => h.style.position);
   try {
+    wrap.style.overflow = 'visible';
+    stickyHeads.forEach((h) => { h.style.position = 'static'; });
     const { default: html2canvas } = await import('html2canvas');
-    const target = document.getElementById('calGrid');
-    const canvas = await html2canvas(target, { scale: 2, backgroundColor: null });
+    const canvas = await html2canvas(target, {
+      scale: 2, backgroundColor: null,
+      width: target.scrollWidth, height: target.scrollHeight,
+    });
     canvas.toBlob((blob) => {
       if (!blob) { toast('No se pudo generar la imagen'); return; }
       const url = URL.createObjectURL(blob);
@@ -23,6 +39,9 @@ export async function exportGridAsPNG() {
   } catch (err) {
     console.error('[export] PNG falló', err);
     toast('No se pudo exportar la imagen');
+  } finally {
+    wrap.style.overflow = prevWrapOverflow;
+    stickyHeads.forEach((h, i) => { h.style.position = prevStickyPos[i]; });
   }
 }
 

@@ -14,6 +14,7 @@ import { renderRecuperar } from './screens/recuperar.js';
 import { renderNuevaContrasena } from './screens/nuevaContrasena.js';
 import { renderAjustesSeguridad } from './screens/ajustesSeguridad.js';
 import { renderAjustesNotificaciones } from './screens/ajustesNotificaciones.js';
+import { renderOnboarding } from './screens/onboarding.js';
 import { bindLegacyAppOnce, loadAndRenderApp } from './legacy-app.js';
 import { initTheme, pullThemeFromProfile } from './themes/theme.js';
 
@@ -48,7 +49,7 @@ if ('serviceWorker' in navigator) {
 const authShell = document.getElementById('auth-shell');
 const appShell = document.getElementById('app-shell');
 
-const PROTECTED_ROUTES = new Set(['/app', '/ajustes/seguridad', '/ajustes/notificaciones']);
+const PROTECTED_ROUTES = new Set(['/app', '/onboarding', '/ajustes/seguridad', '/ajustes/notificaciones']);
 const PUBLIC_SCREENS = {
   '/landing': renderLanding,
   '/signup': renderSignup,
@@ -92,11 +93,21 @@ async function guardedRender(path) {
     if (!session) { navigate('/landing'); return; }
     await ensureSyncStarted(session);
 
+    // Cualquier sesión sin onboarded_at se manda al onboarding, sin
+    // importar a qué ruta protegida intentaba entrar -- así no hay que
+    // repetir este chequeo en cada pantalla.
+    if (path !== '/onboarding') {
+      const { data: profile } = await supabase.from('profiles').select('onboarded_at').eq('id', session.user.id).single();
+      if (!profile?.onboarded_at) { navigate('/onboarding'); return; }
+    }
+
     if (path === '/app') {
       appShell.hidden = false;
       authShell.hidden = true;
       bindLegacyAppOnce();
       await loadAndRenderApp();
+    } else if (path === '/onboarding') {
+      showAuthScreen(renderOnboarding);
     } else if (path === '/ajustes/notificaciones') {
       showAuthScreen(renderAjustesNotificaciones);
     } else {
@@ -114,7 +125,7 @@ async function guardedRender(path) {
   showAuthScreen(PUBLIC_SCREENS[path] || renderLanding);
 }
 
-['/landing', '/signup', '/login', '/recuperar', '/nueva-contrasena', '/app', '/ajustes/seguridad', '/ajustes/notificaciones'].forEach((path) => {
+['/landing', '/signup', '/login', '/recuperar', '/nueva-contrasena', '/app', '/onboarding', '/ajustes/seguridad', '/ajustes/notificaciones'].forEach((path) => {
   register(path, () => guardedRender(path));
 });
 setNotFound(() => navigate('/landing'));

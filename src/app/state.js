@@ -20,34 +20,6 @@ export const NUM_TO_DAY = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves',
 export const COURSE_COLORS = ['#B8D4F1', '#A8D8B9', '#F4C6A5', '#F5B5B5', '#D4B8E8', '#F5E1A8', '#C5E1D4'];
 export const TAG_COLOR_PALETTE = ['#7C93A8', '#96738F', '#C7A34C', '#7BA87C', '#C4726C', '#E8C4B8', '#B87355'];
 
-// Horario por default para cuentas nuevas sin materias todavía (hasta
-// que exista onboarding real en Fase 6).
-const DEF_SCHED = {
-  Lunes: [
-    { s: 15, e: 17, n: 'Educación para el dibujo 1', r: 'T-205' },
-    { s: 17, e: 20, n: 'Diseño integrador 1', r: 'S-201' },
-  ],
-  Martes: [
-    { s: 15, e: 17, n: 'Tipografía 1', ol: 1 },
-    { s: 17, e: 20, n: 'Introducción a la Teoría de Diseño y Estética', ol: 1 },
-  ],
-  Miércoles: [
-    { s: 14, e: 16, n: 'Procesos de Representación Bidimensional 1', r: 'TI-6' },
-    { s: 17, e: 19, n: 'Diseño integrador 1', r: 'S-201' },
-  ],
-  Jueves: [
-    { s: 16, e: 18, n: 'Análisis de textos y redacción', ol: 1 },
-    { s: 18, e: 20, n: 'Recursos Tecnológicos para el Diseño', ol: 1 },
-  ],
-  Viernes: [
-    { s: 14, e: 16, n: 'Geometría', r: 'S-203' },
-    { s: 17, e: 19, n: 'Educación para el dibujo 1', r: 'T-205' },
-  ],
-  Sábado: [],
-  Domingo: [],
-};
-
-function pad2(n) { return String(n).padStart(2, '0'); }
 function parseTimeHour(timeStr) {
   const [h, m] = timeStr.split(':').map(Number);
   return h + (m || 0) / 60;
@@ -93,15 +65,15 @@ export function getState() {
   return { ev, activeSchedule, allSchedules, allCourses, allTasks, allTags, allNotes, weekOffset };
 }
 
-// Primera vez que esta cuenta abre la app: siembra el horario de
-// ejemplo como courses+class_sessions reales. Si ya tiene un horario
-// (propio o bajado por sync de otro dispositivo), no hace nada -- por
-// eso hay que esperar el primer pull() antes de llamar esto (lo
-// garantiza main.js).
+// El onboarding (Fase 6) ya crea el primer horario de cada cuenta nueva
+// como paso explícito -- esto es solo una red de seguridad para el caso
+// raro de llegar aquí sin ninguno (ej. se saltó el onboarding por algún
+// bug, o es una cuenta vieja de antes de que existiera). Ya no siembra
+// materias de ejemplo: eso ahora lo decide la usuaria en el onboarding.
 //
 // Se cachea la promesa para que, sin importar cuántas veces se llame
-// refreshEv() casi al mismo tiempo, la siembra de verdad corra una sola
-// vez.
+// refreshEv() casi al mismo tiempo, la creación de respaldo corra una
+// sola vez.
 let ensureSeedPromise = null;
 export function resetSeedCache() { ensureSeedPromise = null; }
 function ensureSeedData() {
@@ -112,31 +84,7 @@ async function doEnsureSeedData() {
   const schedules = await scheduleRepo.list();
   const existing = schedules.find((s) => s.is_active) || schedules[0];
   if (existing) return existing;
-
-  const schedule = await scheduleRepo.create({ name: 'Otoño 2026', is_active: true });
-  const courseByName = new Map();
-  let colorIdx = 0;
-  for (const day of DAYS) {
-    for (const c of DEF_SCHED[day] || []) {
-      let course = courseByName.get(c.n);
-      if (!course) {
-        course = await courseRepo.create({
-          schedule_id: schedule.id,
-          name: c.n,
-          room: c.ol ? null : c.r || null,
-          color: COURSE_COLORS[colorIdx++ % COURSE_COLORS.length],
-        });
-        courseByName.set(c.n, course);
-      }
-      await classSessionRepo.create({
-        course_id: course.id,
-        day_of_week: DAY_TO_NUM[day],
-        start_time: `${pad2(c.s)}:00`,
-        end_time: `${pad2(c.e)}:00`,
-      });
-    }
-  }
-  return schedule;
+  return scheduleRepo.create({ name: 'Mi horario', is_active: true });
 }
 
 export async function refreshEv() {

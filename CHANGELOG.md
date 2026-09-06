@@ -380,3 +380,154 @@ así que el "funciona sin internet desde el segundo uso" de la app
 instalada no está completo todavía. No lo arreglé aquí porque es un
 problema de caché de la app en general, no de notificaciones -- lo
 dejo anotado para no perderlo de vista.
+
+## Fase 6 — Onboarding, landing y documentación final (2026-08-31)
+
+Última fase del plan original. Cierra los cabos que quedaban abiertos
+desde fases anteriores.
+
+**Qué se construyó:**
+- `src/screens/onboarding.js`: flujo de 5 pasos para cuentas nuevas --
+  nombre, crear el primer horario, primera materia (opcional, con
+  "Después" para saltarla), elegir tema visual (grid con los 3 temas +
+  Automático, aplica al tocar y muestra el borde de selección en vivo),
+  y activar notificaciones. Al terminar marca `profiles.onboarded_at`.
+  Este paso de tema reemplaza directamente al plan original de Fase 6
+  (que hablaba de 4 tarjetas de preview): con Editorial Rosé fuera desde
+  Fase 3, la grilla de onboarding usa el mismo set de temas que el menú
+  de las 3 barritas.
+- Guard en `src/main.js`: cualquier sesión sin `onboarded_at` se manda a
+  `/onboarding` sin importar a qué ruta protegida intentaba entrar --
+  así no hay que repetir el chequeo en cada pantalla nueva que se agregue
+  después.
+- Se retiró el disparador provisional del modal de notificaciones que
+  vivía en `legacy-app.js` desde Fase 5 (el `setTimeout` tras el primer
+  `/app`) -- el paso 5 del onboarding es ahora el punto de enganche real.
+  De paso, `doEnsureSeedData()` en `src/app/state.js` dejó de sembrar un
+  horario de ejemplo con materias inventadas: eso ahora lo decide la
+  usuaria en el onboarding, y la función solo queda como red de
+  seguridad para el caso raro de llegar a `/app` sin ningún horario.
+- 4 plantillas de correo traducidas y con la marca de la app
+  (`supabase/email-templates/*.md`: confirmación, magic link, reset de
+  contraseña, cambio de correo) -- Supabase manda el default en inglés
+  si no se pegan a mano en el Dashboard, así que cada archivo trae
+  exactamente qué pegar y dónde.
+- `.github/workflows/deploy.yml`: publica `dist/` a GitHub Pages solo con
+  cada push a `main`, leyendo las llaves de Supabase/VAPID de los
+  secrets del repo.
+- Pase de consolidación en `README.md`: configurar un proyecto Supabase
+  real de cero (migraciones, redirect URLs, plantillas de correo),
+  activar el deploy automático, y la sección de VAPID/iOS de Fase 5
+  quedan todas en un solo lugar en vez de repartidas.
+- `CHECKLIST-VERIFICACION.md` nuevo: qué se probó en vivo en cada fase,
+  en un solo documento (hasta ahora solo vivía repartido en este
+  changelog).
+
+**Bug real encontrado y corregido probando el onboarding en vivo:**
+`paintHorario()` (paso 2) creaba un horario nuevo con
+`scheduleRepo.create({ ..., is_active: true })` sin revisar si la cuenta
+ya tenía uno. Si el onboarding se interrumpe después de ese paso --
+recargar la pestaña, cerrar el navegador, o en iOS simplemente que
+Safari mate la pestaña en segundo plano -- y la sesión vuelve a
+`/onboarding`, el paso 2 se repite y crea un **segundo** horario, también
+con `is_active: true`. Lo confirmé recreando el escenario a propósito:
+terminé quedando con dos filas `is_active = true` para la misma cuenta
+en `schedules`. El resto de la app sí respeta el invariante de "un solo
+horario activo a la vez" (`src/app/schedules.js` desactiva los demás
+antes de activar uno nuevo) -- el onboarding era el único lugar que no
+lo seguía. Corregido en `src/screens/onboarding.js` para que el paso 2
+primero busque si ya existe un horario (activo, o el primero de la
+lista) y lo reuse en vez de crear otro.
+
+**Verificado en vivo, de punta a punta:**
+- Onboarding completo con una cuenta nueva (`fase6@ejemplo.dev`):
+  nombre → horario → materia opcional (agregada, no solo saltada) →
+  tema (Obsidian AMOLED aplicó al instante, con el borde de selección
+  moviéndose a la tarjeta correcta y el resto de la tarjeta/botones
+  re-pintándose en el tema nuevo) → notificaciones ("Activar
+  recordatorios", que en este entorno de pruebas sin permisos reales del
+  sistema igual completa el flujo sin trabarse). Terminó en `/app` con
+  el horario, la materia y el tema correctos.
+- Confirmado en la base de datos: `profiles.display_name`,
+  `profiles.theme` y `profiles.onboarded_at` quedaron con los valores
+  correctos; exactamente un horario activo con la materia adentro
+  (después de corregir el bug de arriba).
+- El guard: una cuenta sin `onboarded_at` que intenta ir a `/app`
+  directo se manda a `/onboarding`; una cuenta ya onboardeada
+  (`fase6@ejemplo.dev` después de terminar, y la semilla
+  `prueba@mihorario.dev`) entra directo a `/app` sin rebotar al
+  onboarding, incluso con recarga completa de la pestaña (no solo
+  navegación dentro de la SPA).
+- `public/landing-preview.png` sigue sin existir (pendiente desde Fase
+  2) -- en vez de dejarlo mostrando el ícono de imagen rota en una
+  pantalla pública, se le agregó un `onerror` que oculta el hueco.
+  Verificado visualmente en modo móvil: la landing se ve limpia sin la
+  imagen. La foto real queda como el único paso manual pendiente (ver
+  README) -- no se pudo generar un archivo `.png` de verdad desde este
+  entorno de pruebas.
+- `npm run build` limpio después de todos los cambios de esta fase (89
+  módulos, sin errores).
+
+**No verificado:** el flujo completo de instalación en iPhone real
+(PWA instalada, notificación real recibida) sigue arrastrando la misma
+limitación que Fase 5 -- este entorno de pruebas no tiene permisos de
+notificación reales del sistema operativo. Tampoco se probó el deploy
+real a GitHub Pages ni un proyecto Supabase de producción de verdad
+(ambos requieren una cuenta de GitHub/Supabase real, fuera del alcance
+de este entorno) -- los pasos en el README están escritos y revisados,
+pero no ejecutados contra la infraestructura real.
+
+## Repaso final — cerrando pendientes de Fase 4 (2026-09-01)
+
+Con las 6 fases ya entregadas, aproveché para cerrar los dos pendientes
+que Fase 4 había dejado explícitamente sin verificar ("Compartir" y el
+PNG exportado) usando una técnica que no tenía disponible en su momento:
+interceptar `URL.createObjectURL` antes de disparar la exportación real
+desde la UI, para capturar el blob generado y verlo de verdad en vez de
+solo confirmar que el código corre sin errores.
+
+**Bug real encontrado y corregido -- exportar a PNG salía cortado:**
+`exportGridAsPNG()` le pasaba a `html2canvas` el elemento `#calGrid`
+completo, pero ese elemento vive dentro de `.cal-wrap`, que tiene
+`overflow-x:auto` (es el contenedor que scrollea horizontalmente para
+ver el resto de la semana) -- sin decirle a html2canvas el tamaño real
+del contenido, capturaba nada más los ~2 días que cabían en la caja
+visible en ese momento, silenciosamente, sin ningún error. Verifiqué
+esto capturando el blob real: la imagen mostraba Lunes completo y
+Martes cortado a la mitad, nada más.
+
+El primer intento de arreglo (pasarle `width`/`height` = el ancho/alto
+real del contenido) generó una imagen peor: los encabezados de columna
+usan `position:sticky` para quedarse fijos arriba al hacer scroll, y
+html2canvas los renderiza mal cuando el área de captura es más grande
+que el viewport real -- todos los días quedaron apilados en la esquina
+superior izquierda y el resto del canvas salió en blanco. La solución
+que sí funcionó: quitarle el recorte a `.cal-wrap` y el `position:sticky`
+a los encabezados un instante (solo mientras se genera la captura),
+capturar, y regresar ambos a su estado original en un `finally` --
+confirmado que no deja rastro en la UI después de exportar. Con eso, la
+imagen exportada muestra las 7 columnas completas (Lunes a Domingo) con
+todas las materias, colores y el evento suelto que tenía la cuenta de
+prueba.
+
+**"Compartir" -- verificado, con una limitación esperada del entorno:**
+este navegador de pruebas no tiene `navigator.share` (no es un
+dispositivo móvil real), así que el clic real al botón sí ejerce la
+rama de respaldo (`navigator.clipboard.writeText`) -- confirmé que
+intenta escribir al portapapeles y, cuando el navegador deniega el
+permiso (`NotAllowedError`, esperado en este sandbox sin gesto de
+usuario "de verdad" a nivel sistema operativo), cae correctamente en el
+mensaje `"No se pudo compartir"` en vez de tronar. El código y su manejo
+de errores están correctos; lo único que no se pudo confirmar aquí es
+la hoja nativa de compartir de iOS/Android o una escritura real al
+portapapeles -- misma categoría de límite que las notificaciones push
+de Fase 5 (permisos reales del sistema operativo, no disponibles en
+este entorno).
+
+**Verificado en vivo:** `npm run build` limpio después del fix; la
+imagen exportada inspeccionada visualmente byte por byte (no solo "se
+generó un canvas") confirma las 7 columnas, los colores por materia, y
+el evento "Junta de equipo" fuera del horario de clases. Los estilos
+inline que el fix toca temporalmente (`overflow` de `.cal-wrap`,
+`position` de cada `.col-head`) se confirmaron restaurados a su estado
+original después de exportar.

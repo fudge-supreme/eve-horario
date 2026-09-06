@@ -14,6 +14,10 @@ export function renderLanding(container) {
         <button class="auth-btn-secondary" id="landingLogin">Ya tengo cuenta</button>
       </div>
     </div>`;
+  // Si nadie puso public/landing-preview.png todavía, ocultar el hueco en
+  // vez de mostrar el ícono roto en una pantalla pública de marketing.
+  const preview = container.querySelector('.landing-hero img');
+  preview.onerror = () => { preview.style.display = 'none'; };
   container.querySelector('#landingSignup').onclick = () => navigate('/signup');
   container.querySelector('#landingLogin').onclick = () => navigate('/login');
 }

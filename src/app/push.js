@@ -1,7 +1,9 @@
 // Flujo de activación de notificaciones push: pide permiso, obtiene la
-// PushSubscription del navegador, y la sube a push_subscriptions.
+// PushSubscription del navegador, y la sube a push_subscriptions. El
+// modal de "¿quieres recordatorios?" vive como paso 5 del onboarding
+// (src/screens/onboarding.js); para cuentas ya onboarded que nunca lo
+// vieron, el camino es activar manual desde /ajustes/notificaciones.
 import { supabase } from '../data/supabase.js';
-import { haptic, H, openSheet, closeSheet, toast } from './shared.js';
 
 // navigator.serviceWorker.ready nunca resuelve si el Service Worker no
 // llega a activarse (pasa en algunos navegadores/entornos restringidos,
@@ -95,54 +97,4 @@ export async function deactivatePush() {
   } catch (err) {
     console.error('[push] no se pudo desactivar', err);
   }
-}
-
-// Modal de "¿quieres recordatorios?", una sola vez por cuenta (hasta
-// que exista onboarding real en Fase 6, este es el disparador: la
-// primera vez que /app carga después de iniciar sesión). iOS solo deja
-// pedir el permiso si la PWA ya está instalada -- si no, ni lo
-// intentamos, para no gastar el único permiso que Safari deja pedir.
-//
-// La key de "ya se preguntó" va por user_id, no plana -- si no, en un
-// navegador compartido por varias cuentas, que UNA la descarte haría
-// que ninguna otra la vuelva a ver jamás (el mismo tipo de bug de
-// mezclar datos entre cuentas que ya encontré en Fase 3-4).
-export async function maybeShowPushPrompt() {
-  const { data } = await supabase.auth.getSession();
-  const userId = data.session?.user?.id;
-  if (!userId) return;
-  const promptedKey = `push_prompted_${userId}`;
-
-  if (localStorage.getItem(promptedKey) === 'true') return;
-  // Si no hay soporte (ej. Safari de iOS antes de instalar la PWA), NO
-  // se marca como "ya preguntado" -- en iOS, PushManager/Notification
-  // recién aparecen después de agregarla a pantalla de inicio, así que
-  // hay que poder volver a intentar en la próxima carga.
-  if (!pushSupported()) return;
-  if (await isSubscribed()) { localStorage.setItem(promptedKey, 'true'); return; }
-
-  const sheet = document.getElementById('sheet');
-  sheet.innerHTML = `
-    <div class="sheet-handle"></div><button class="sheet-close" id="sc">×</button>
-    <label>Recordatorios</label>
-    <p style="font-family:'Fraunces',serif;font-style:italic;font-size:20px;font-weight:500;margin-bottom:10px">¿Quieres que te avisemos?</p>
-    <p style="font-size:13px;color:var(--ink2);line-height:1.5;margin-bottom:16px">
-      Mi Horario te puede mandar una notificación antes de que empiece tu próxima clase, y para recordarte tus tareas la noche anterior y la mañana en que vencen. Puedes cambiar esto cuando quieras desde Ajustes.
-    </p>
-    <div class="sheet-actions">
-      <button class="btn-danger" id="pushLater">Ahora no</button>
-      <button class="btn-primary" id="pushActivate">Activar recordatorios</button>
-    </div>`;
-  document.getElementById('sc').onclick = () => { localStorage.setItem(promptedKey, 'true'); closeSheet(); };
-  document.getElementById('pushLater').onclick = () => { localStorage.setItem(promptedKey, 'true'); haptic(H.tap); closeSheet(); };
-  document.getElementById('pushActivate').onclick = async () => {
-    haptic(H.tap);
-    const result = await activatePush();
-    localStorage.setItem(promptedKey, 'true');
-    closeSheet();
-    if (result.ok) toast('Recordatorios activados');
-    else if (result.reason === 'denied') toast('Permiso denegado -- puedes activarlo luego desde Ajustes');
-    else toast('No se pudo activar en este dispositivo');
-  };
-  openSheet();
 }
