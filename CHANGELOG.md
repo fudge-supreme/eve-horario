@@ -623,3 +623,39 @@ mano desde el detalle. No se probó con dispositivo táctil real (solo
 mouse simulado) -- el código usa Pointer Events, que cubren touch y
 mouse por igual, pero no hay forma de confirmar el gesto con el dedo en
 este entorno.
+
+## Se quitó el rail de navegación en desktop (2026-09-12)
+
+Reporte real: "te diste cuenta que creaste una cuarta columna, cuál es
+su utilidad, si no puedes moverte entre pestañas hay que arreglar eso."
+El fix del tri-panel (más arriba, "Fixes de layout desktop en
+producción") corrigió el bug de especificidad que tenía a
+`.panel-rail` en `display:none` -- sin querer, eso hizo VISIBLE por
+primera vez un rail de íconos (📚 Materias, ☀️ Hoy, ✓ Tareas) que
+llevaba ahí, invisible, desde que se escribió en Fase 4.
+
+Probado en vivo: clickear cualquier ícono del rail no hacía nada
+perceptible más allá de resaltarse a sí mismo. La razón: en desktop las
+3 columnas (materias/semana/tareas) ya están todas visibles siempre, en
+una grilla de `height:100vh` sin scroll de página -- el
+`scrollIntoView()` que disparaba el click no tenía ningún lado al que
+moverse, porque no hay concepto de "cambiar de pestaña" cuando todo ya
+está a la vista al mismo tiempo. El rail era, en la práctica, una
+columna muerta que nunca había recibido una sola interacción real hasta
+esta sesión.
+
+**Se quitó en vez de intentar hacerlo "funcionar":** el `<nav>` del
+rail salió de `index.html`, su columna de 64px salió de
+`grid-template-columns`/`grid-template-areas` (el tri-panel pasó de 4 a
+3 columnas: materias 300px / semana `1fr` / tareas 340px -- el espacio
+libre lo absorbe semana automáticamente), su CSS (`.nav-rail`,
+`.nav-rail-btn`) se borró, y `nav.js` se simplificó a solo la lógica
+del tab bar de mobile (la única que de verdad hacía algo -- el rail y
+el scroll-a-columna en desktop quedaron sin ningún llamador después de
+esto).
+
+**Verificado en vivo:** desktop confirma 3 columnas con los anchos
+exactos esperados (`getComputedStyle`), sin rastro del rail. Mobile
+probado de punta a punta -- cambiar entre las 4 pestañas de la tab bar
+sigue funcionando exactamente igual que antes, ya que esa lógica no se
+tocó. Sin errores en consola en ninguno de los dos.

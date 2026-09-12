@@ -31,7 +31,6 @@
 .app-layout[data-tab='semana'] > .panel-semana { display: block; }
 .app-layout[data-tab='materias'] > .panel-materias { display: block; }
 .app-layout[data-tab='tareas'] > .panel-tareas { display: block; }
-.panel-rail { display: none; }
 
 /* --- Tab bar (mobile) --- */
 .tab-bar {
@@ -225,8 +224,8 @@ body:has(#app-shell:not([hidden])) { padding-bottom: calc(64px + env(safe-area-i
 @media (min-width: 1024px) {
   #app-shell .page { max-width: none; }
   .app-layout {
-    grid-template-columns: 64px 300px 1fr 340px;
-    grid-template-areas: 'rail materias semana tareas';
+    grid-template-columns: 300px 1fr 340px;
+    grid-template-areas: 'materias semana tareas';
     height: 100vh;
   }
   /* .app-layout > .panel-X (2 clases) en vez de .panel-X solo (1 clase):
@@ -236,7 +235,6 @@ body:has(#app-shell:not([hidden])) { padding-bottom: calc(64px + env(safe-area-i
      archivo, y las 4 áreas nombradas nunca se aplicaban de verdad (bug
      real: todo caía en auto-placement por DOM order, no por columna). */
   .app-layout > .app-panel { grid-area: unset; }
-  .app-layout > .panel-rail { display: flex; grid-area: rail; }
   .app-layout > .panel-materias { display: flex !important; flex-direction: column; grid-area: materias; border-right: 1px solid var(--line); }
   .app-layout > .panel-semana { display: block !important; grid-area: semana; }
   .app-layout > .panel-tareas { display: flex !important; flex-direction: column; grid-area: tareas; border-left: 1px solid var(--line); }
@@ -268,12 +266,3 @@ body:has(#app-shell:not([hidden])) { padding-bottom: calc(64px + env(safe-area-i
   .sheet-handle { display: none; }
 }
 
-/* --- Nav rail (solo desktop) --- */
-.nav-rail { flex-direction: column; align-items: center; gap: 4px; padding: 16px 0; border-right: 1px solid var(--line); }
-.nav-rail-btn {
-  width: 40px; height: 40px; border-radius: 12px; border: none; background: none;
-  color: var(--ink2); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-  transition: background-color 0.16s var(--ease-out), color 0.16s var(--ease-out);
-}
-.nav-rail-btn.active { background: rgba(128, 128, 128, 0.12); color: var(--terracotta); }
-.nav-rail-btn:active { transform: scale(0.9); }
