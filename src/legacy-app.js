@@ -243,6 +243,11 @@ const sheet = document.getElementById('sheet');
 (function () {
   let sy = 0, cy = 0, drag = false, startTs = 0;
   sheet.addEventListener('pointerdown', (e) => {
+    // El botón de cerrar (×) vive en los primeros 60px, la misma zona
+    // que dispara el arrastre -- sin este guard, tocarlo capturaba el
+    // puntero para el gesto de swipe y se comía el click, dejando el
+    // botón "muerto" (bug real: no cerraba la hoja al tocarlo).
+    if (e.target.closest('button')) return;
     const rect = sheet.getBoundingClientRect();
     if (e.clientY - rect.top > 60) return;
     sy = e.clientY; drag = true; startTs = Date.now();
