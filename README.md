@@ -60,6 +60,18 @@ directo a `/app` en vez de pasar por el onboarding.
    GitHub si vas a usar el deploy automático (ver abajo).
 6. Sigue la sección de VAPID de abajo para las notificaciones push.
 
+**Límite de correo del servicio compartido de Supabase:** un proyecto
+nuevo manda confirmaciones/magic links/resets con el mailer compartido
+de Supabase por default, que tiene un límite bajo a propósito (un
+puñado por hora, para evitar spam) -- confirmarlo tú mismo un par de
+veces de seguido ya lo satura, y el error que da
+(`over_email_send_rate_limit`) la app lo muestra genérico como "revisa
+tu conexión". No es un bug, se resetea solo en un rato. Si vas a probar
+signup varias veces seguidas (o esperas que varias personas se
+registren el mismo día), configura un proveedor SMTP propio
+(Authentication → Emails → SMTP Settings -- Resend, SendGrid y Postmark
+tienen plan gratis) para que ese límite deje de aplicar.
+
 ### Notificaciones push (VAPID)
 
 ```bash

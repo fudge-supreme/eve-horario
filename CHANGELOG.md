@@ -531,3 +531,95 @@ el evento "Junta de equipo" fuera del horario de clases. Los estilos
 inline que el fix toca temporalmente (`overflow` de `.cal-wrap`,
 `position` de cada `.col-head`) se confirmaron restaurados a su estado
 original después de exportar.
+
+## Fixes de layout desktop en producción + Tareas avanzadas (2026-09-12)
+
+Reporte real en producción, de madrugada: en desktop las 3 columnas del
+tri-panel salían descuadradas, la hoja de "agregar materia" no cerraba
+con el botón × y aparecía pegada hasta abajo de la pantalla en vez de
+centrada. Se diagnosticó, corrigió y verificó todo contra el stack
+local antes de subirlo.
+
+**Bug real -- tri-panel descuadrado:** confirmado con `getComputedStyle`
+en el sitio real: `.app-layout > .app-panel { grid-area: unset; }` (2
+clases de especificidad) le ganaba la cascada a `.panel-materias` /
+`.panel-semana` / `.panel-tareas { grid-area: X }` (1 clase cada uno) --
+las 4 áreas nombradas del grid nunca se aplicaban de verdad. Con el
+rail y el panel Hoy ocultos, materias/semana/tareas caían en
+auto-acomodo por orden del DOM: materias heredaba la columna angosta
+del rail (64px), semana la de materias (300px), tareas se quedaba con
+toda la columna `1fr`, y la columna de 340px que en teoría era de
+tareas quedaba vacía. Corregido subiendo la especificidad de los 4
+selectores del bloque desktop (`.app-layout > .panel-X`) para que
+empaten con el reset y ganen por orden de aparición.
+
+**Bug real -- botón × no cerraba:** el gesto de "deslizar hacia abajo
+para cerrar" vive en los primeros 60px de la hoja, la misma zona donde
+está el botón × -- tocarlo también disparaba `setPointerCapture()`
+sobre la hoja completa, que se comía el click. Corregido excluyendo
+cualquier `<button>` de esa zona antes de iniciar el arrastre.
+
+**Cambio de diseño -- hoja centrada en desktop:** las hojas (agregar
+materia, detalle de tarea, etc.) usaban el patrón de "sube desde abajo"
+pensado para celular; en una pantalla grande de escritorio se veían
+como una tarjeta chica pegada hasta abajo con todo lo demás vacío
+arriba. Ahora se centran como un diálogo normal en `>=1024px`, con el
+gesto de arrastrar-para-cerrar desactivado ahí (solo aplica al patrón
+mobile, donde si tiene sentido).
+
+**Funcionalidad nueva en Tareas -- pedida explícitamente:**
+- **Prioridad** (alta=rojo, media=naranja, baja=amarillo): columna
+  `priority` en `tasks`, selector de 3 chips + "Ninguna" en el detalle
+  de la tarea, aplica al tocar. Punto de color en la fila de la lista.
+- **Dependencias simples**: columna `depends_on uuid[]` en `tasks` (no
+  se armó una tabla de unión aparte -- el pedido fue "simples pero
+  útiles", y un arreglo de ids alcanza). Un checklist en el detalle
+  deja marcar de cuáles depende. Al intentar marcar una tarea hecha, si
+  alguna de sus dependencias sigue pendiente, se bloquea con un toast
+  que dice cuáles faltan -- desmarcar nunca se bloquea. Para evitar el
+  ciclo más obvio (A depende de B y B depende de A, las dos quedarían
+  bloqueadas para siempre entre sí), el checklist de candidatas excluye
+  cualquier tarea que ya dependa de esta.
+- **Subtareas ordenables**: tabla nueva `subtasks` (con su propio RLS,
+  igual que el resto), cada tarea puede tener varias, cada una con su
+  numerito de orden, casilla propia, y una manija (⠿) para
+  arrastrar y reordenar con mouse o dedo -- sin librería, con Pointer
+  Events. Al soltar, se recalculan las posiciones de todas y se
+  guardan. La fila de la tarea en la lista muestra "x/y subtareas" si
+  tiene alguna.
+- Pantalla de detalle de tarea nueva (no existía antes -- las tareas
+  solo se podían marcar/borrar desde la lista): título, materia, fecha,
+  prioridad, dependencias y subtareas, todo en un solo lugar. Se abre
+  tocando la tarea en cualquier parte que no sea el check o la ×.
+
+**Decisión técnica encontrada probando, no elegida de entrada:** el
+primer intento de arrastre para las subtareas usaba
+`setPointerCapture()` en el ícono ⠿ (chico) -- funcionaba, pero
+descubrí en mis propias pruebas que si el puntero se movía rápido y se
+salía del ícono, el gesto se cortaba a medias (las posiciones nunca se
+guardaban, aunque el reorden visual sí ocurría, dejando los numeritos
+desincronizados del orden real). Corregido escuchando
+`pointermove`/`pointerup` en `document` en vez de solo en la manija --
+patrón más robusto para este tipo de arrastre, y ya no depende de que
+la captura de puntero se establezca bien.
+
+**Verificado en vivo contra el stack local, de punta a punta:** crear
+subtarea (confirmé que sí llegaba a IndexedDB aunque tardó en pintarse
+en pantalla -- no es bug, es el round-trip normal), arrastrar para
+reordenar dos subtareas y confirmar que las posiciones se guardaron
+correctas en la base, marcar prioridad alta (aplica al instante),
+marcar una dependencia, intentar cerrar la tarea dependiente (bloqueada
+con el toast correcto), completar la dependencia, reintentar (esta vez
+sí se marca), desmarcar (nunca se bloquea). Probado también en viewport
+mobile completo -- la hoja de detalle se ve y funciona igual de bien
+ahí. Migración 007 aplicada contra el proyecto de producción real
+(`supabase db push --linked`), no solo local.
+
+**No verificado:** no hay detección de ciclos indirectos más largos
+(A→B→C→A) -- fuera de alcance para "simple pero útil"; si llega a
+pasar, ambas tareas del extremo del ciclo quedarían bloqueadas entre sí
+sin poderse completar, y la única salida es quitar la dependencia a
+mano desde el detalle. No se probó con dispositivo táctil real (solo
+mouse simulado) -- el código usa Pointer Events, que cubren touch y
+mouse por igual, pero no hay forma de confirmar el gesto con el dedo en
+este entorno.

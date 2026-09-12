@@ -99,15 +99,43 @@ en `CHANGELOG.md` -- esto es el resumen en forma de checklist.
 - [x] Fallback de `landing-preview.png` faltante: no muestra ícono
       roto, verificado visualmente en modo móvil.
 - [x] `npm run build` limpio.
-- [ ] Deploy real a GitHub Pages y proyecto Supabase de producción no
-      ejecutados contra infraestructura real (requieren cuentas
-      GitHub/Supabase reales, fuera de este entorno) -- los pasos están
-      escritos y revisados en el README, no probados de punta a punta.
+- [x] Deploy real a producción: repo en GitHub
+      (`fudge-supreme/eve-horario`), Supabase real
+      (`ekzddpbmvgynqbhqgbja`), GitHub Pages vía Actions. Signup real
+      probado contra el backend real -- expuso el rate limit del correo
+      compartido de Supabase (no es bug, ver más abajo) y el Site URL
+      sin configurar (sí era bug, corregido).
 - [ ] Instalación real en iPhone (PWA + notificación real recibida)
       sigue pendiente de un dispositivo físico.
 - [ ] Foto real para `public/landing-preview.png` -- paso manual descrito
       en el README, no se pudo generar un archivo `.png` desde este
       entorno.
+
+## Fixes de layout desktop + Tareas avanzadas (2026-09-12)
+- [x] Tri-panel descuadrado en producción: causa raíz confirmada con
+      `getComputedStyle` (bug de especificidad CSS), corregido y
+      reverificado -- las 4 columnas miden exactamente lo que deben.
+- [x] Botón × de las hojas no cerraba: causa raíz confirmada (pointer
+      capture del gesto de swipe se comía el click), corregido y
+      reverificado con clic real.
+- [x] Hojas centradas como diálogo en desktop (antes: pegadas hasta
+      abajo, patrón mobile sin adaptar).
+- [x] Prioridad (alta/media/baja, rojo/naranja/amarillo): aplica al
+      instante, punto de color visible en la lista.
+- [x] Dependencias entre tareas: bloqueo real probado (toast con el
+      nombre de la tarea pendiente), y el camino positivo (completar la
+      dependencia y luego sí poder marcar) también probado.
+- [x] Subtareas con orden arrastrable: creación, checkbox individual,
+      borrado, y arrastrar-para-reordenar probados de punta a punta,
+      con las posiciones verificadas directo en la base de datos (no
+      solo visualmente).
+- [x] Migración 007 aplicada contra producción real
+      (`supabase db push --linked`), no solo local.
+- [ ] Detección de ciclos indirectos de dependencias (A→B→C→A) --
+      fuera de alcance, documentado como límite conocido.
+- [ ] Arrastrar subtareas con el dedo en un dispositivo táctil real --
+      el código usa Pointer Events (cubre touch y mouse), pero solo se
+      probó con mouse/simulación en este entorno.
 
 ## Lo que queda para probar tú, con infraestructura real
 

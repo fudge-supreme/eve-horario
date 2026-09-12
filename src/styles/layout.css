@@ -157,6 +157,38 @@ body:has(#app-shell:not([hidden])) { padding-bottom: calc(64px + env(safe-area-i
 .task-title { font-size: 13px; font-weight: 500; line-height: 1.3; }
 .task-due { font-size: 10.5px; color: var(--ink2); margin-top: 2px; }
 .tasks-empty { padding: 4px 20px; font-size: 12px; color: var(--ink2); font-style: italic; }
+.task-row { cursor: pointer; }
+.task-priority-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+
+/* --- Detalle de tarea: prioridad, dependencias, subtareas --- */
+.priority-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.priority-chip {
+  padding: 6px 12px; border-radius: 999px; border: 1.5px solid var(--line); background: transparent;
+  font-size: 11.5px; font-weight: 600; color: var(--ink2); cursor: pointer;
+  transition: transform 0.12s var(--ease-out), background-color 0.12s var(--ease-out), color 0.12s var(--ease-out);
+}
+.priority-chip[style*="--p-color"] { border-color: color-mix(in srgb, var(--p-color) 50%, transparent); }
+.priority-chip.sel { background: var(--p-color, var(--terracotta)); border-color: var(--p-color, var(--terracotta)); color: #fff; }
+.priority-chip:active { transform: scale(0.94); }
+
+.dep-list { display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto; padding: 2px 0; }
+.dep-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; cursor: pointer; }
+.dep-row input { width: 15px; height: 15px; accent-color: var(--terracotta); }
+
+.subtask-row {
+  display: flex; align-items: center; gap: 8px; padding: 7px 8px; margin-bottom: 5px;
+  border-radius: 10px; background: var(--surface); font-size: 12.5px;
+}
+.subtask-row.dragging { opacity: 0.5; }
+.subtask-row.done .subtask-title { text-decoration: line-through; color: var(--ink2); }
+.subtask-drag { cursor: grab; color: var(--ink2); touch-action: none; padding: 2px; }
+.subtask-drag:active { cursor: grabbing; }
+.subtask-num {
+  flex: 0 0 auto; width: 17px; height: 17px; border-radius: 50%; background: var(--line);
+  color: var(--ink2); font-size: 9.5px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+}
+.subtask-title { flex: 1; min-width: 0; }
+.subtask-del { border: none; background: none; color: var(--ink2); font-size: 14px; cursor: pointer; padding: 2px 4px; }
 
 /* --- Schedule header (panel Semana) --- */
 .schedule-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 20px 20px 0; gap: 10px; flex-wrap: wrap; }

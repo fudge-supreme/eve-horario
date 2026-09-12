@@ -9,7 +9,7 @@ import { openDB } from 'idb';
 // `synced_at === null` significa "cambio local sin confirmar en el
 // servidor todavía".
 const DB_NAME = 'mi-horario';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 const STORES = {
   schedules: ['user_id', 'updated_at'],
@@ -19,6 +19,7 @@ const STORES = {
   tasks: ['user_id', 'updated_at', 'course_id'],
   tags: ['user_id', 'updated_at'],
   notes: ['user_id', 'updated_at', 'course_id'],
+  subtasks: ['user_id', 'updated_at', 'task_id'],
 };
 
 let dbPromise = null;

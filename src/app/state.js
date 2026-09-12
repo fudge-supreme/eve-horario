@@ -10,6 +10,7 @@ import { eventRepo } from '../data/repositories/eventRepo.js';
 import { taskRepo } from '../data/repositories/taskRepo.js';
 import { tagRepo } from '../data/repositories/tagRepo.js';
 import { noteRepo } from '../data/repositories/noteRepo.js';
+import { subtaskRepo } from '../data/repositories/subtaskRepo.js';
 
 export const DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 export const DS = { Lunes: 'Lun', Martes: 'Mar', Miércoles: 'Mié', Jueves: 'Jue', Viernes: 'Vie', Sábado: 'Sáb', Domingo: 'Dom' };
@@ -60,9 +61,10 @@ let allCourses = [];
 let allTasks = [];
 let allTags = [];
 let allNotes = [];
+let allSubtasks = [];
 
 export function getState() {
-  return { ev, activeSchedule, allSchedules, allCourses, allTasks, allTags, allNotes, weekOffset };
+  return { ev, activeSchedule, allSchedules, allCourses, allTasks, allTags, allNotes, allSubtasks, weekOffset };
 }
 
 // El onboarding (Fase 6) ya crea el primer horario de cada cuenta nueva
@@ -97,6 +99,7 @@ export async function refreshEv() {
   allTasks = await taskRepo.list();
   allTags = await tagRepo.list();
   allNotes = await noteRepo.list();
+  allSubtasks = await subtaskRepo.list();
 
   const next = {};
   for (const s of sessions) {
