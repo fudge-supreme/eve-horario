@@ -224,8 +224,8 @@ body:has(#app-shell:not([hidden])) { padding-bottom: calc(64px + env(safe-area-i
 @media (min-width: 1024px) {
   #app-shell .page { max-width: none; }
   .app-layout {
-    grid-template-columns: 300px 1fr 340px;
-    grid-template-areas: 'materias semana tareas';
+    grid-template-columns: 72px 300px 1fr 340px;
+    grid-template-areas: 'quick materias semana tareas';
     height: 100vh;
   }
   /* .app-layout > .panel-X (2 clases) en vez de .panel-X solo (1 clase):
@@ -235,6 +235,7 @@ body:has(#app-shell:not([hidden])) { padding-bottom: calc(64px + env(safe-area-i
      archivo, y las 4 áreas nombradas nunca se aplicaban de verdad (bug
      real: todo caía en auto-placement por DOM order, no por columna). */
   .app-layout > .app-panel { grid-area: unset; }
+  .app-layout > .panel-quick { display: flex !important; grid-area: quick; }
   .app-layout > .panel-materias { display: flex !important; flex-direction: column; grid-area: materias; border-right: 1px solid var(--line); }
   .app-layout > .panel-semana { display: block !important; grid-area: semana; }
   .app-layout > .panel-tareas { display: flex !important; flex-direction: column; grid-area: tareas; border-left: 1px solid var(--line); }
@@ -250,6 +251,34 @@ body:has(#app-shell:not([hidden])) { padding-bottom: calc(64px + env(safe-area-i
   .cal-wrap { padding-bottom: 40px; }
   .today-card-desktop { display: block; margin: 20px 20px 0; }
   .app-utility-bar { top: 16px; right: 20px; }
+  /* El panel de Tareas es el único que llega hasta la orilla derecha
+     de la pantalla -- ahí mismo vive la barra fija (punto de sync,
+     menú, ajustes). Bug real encontrado al corregir el tri-panel: antes
+     el panel estaba mal colocado y por accidente no chocaban, pero en
+     su lugar correcto el botón + de "Agregar tarea" quedaba tapado
+     debajo de la barra, technicamente visible pero sin poder tocarlo. */
+  .panel-tareas .sec-head { padding-top: 64px !important; }
+
+  /* --- Columna de accesos rápidos (antes era un rail de navegación
+     que no servía de nada en desktop -- las 3 columnas ya están
+     todas visibles siempre, ver CHANGELOG. Se reusa el espacio para
+     3 botones de "crear rápido": tarea, materia, nota). --- */
+  .quick-actions { flex-direction: column; align-items: center; gap: 10px; padding: 64px 0 16px; border-right: 1px solid var(--line); }
+  .quick-btn {
+    width: 44px; height: 44px; border-radius: 14px; border: 1px solid var(--glass-border);
+    background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    position: relative; box-shadow: var(--glass-inset), var(--glass-sh);
+    transition: transform 0.12s var(--ease-out), var(--theme-t);
+  }
+  .quick-btn:active { transform: scale(0.88); }
+  .quick-btn span {
+    position: absolute; bottom: -2px; right: -2px; width: 15px; height: 15px; border-radius: 50%;
+    background: var(--terracotta); color: #fff; font-size: 10px; font-weight: 700; line-height: 15px;
+  }
+
+  /* --- Notas (abajo del calendario, panel Semana) --- */
+  #notesSection { border-top: 1px solid var(--line); margin-top: 20px; }
 
   /* Las hojas (agregar materia, detalle de evento, etc.) usan el patrón
      de "sube desde abajo" pensado para celular -- en una pantalla

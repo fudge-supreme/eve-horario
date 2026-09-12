@@ -19,13 +19,6 @@ function esc(s) {
   d.textContent = s ?? '';
   return d.innerHTML;
 }
-function pad2(n) { return String(n).padStart(2, '0'); }
-function fmtHour(h) { const hh = h % 12 === 0 ? 12 : h % 12; return hh + (h >= 12 ? ' pm' : ' am'); }
-function hoursOptions(selected) {
-  const opts = [];
-  for (let h = 6; h <= 22; h++) opts.push(`<option value="${h}"${h === selected ? ' selected' : ''}>${fmtHour(h)}</option>`);
-  return opts.join('');
-}
 
 export async function renderOnboarding(container) {
   const { data } = await supabase.auth.getSession();
@@ -112,8 +105,8 @@ export async function renderOnboarding(container) {
       <div class="auth-field"><label for="obCourseRoom">Aula <span style="font-weight:400;text-transform:none">(vacío = en línea)</span></label><input type="text" id="obCourseRoom" placeholder="Ej. S-201"></div>
       <div class="time-row">
         <div><label>Día</label><select id="obDay">${DAYS.map((d) => `<option>${d}</option>`).join('')}</select></div>
-        <div><label>Inicio</label><select id="obStart">${hoursOptions(15)}</select></div>
-        <div><label>Fin</label><select id="obEnd">${hoursOptions(17)}</select></div>
+        <div><label>Inicio</label><input type="time" id="obStart" value="15:00"></div>
+        <div><label>Fin</label><input type="time" id="obEnd" value="17:00"></div>
       </div>
       <div id="obMsg"></div>
       <div style="display:flex;gap:8px;margin-top:16px">
@@ -126,9 +119,9 @@ export async function renderOnboarding(container) {
       if (!name) { step++; paint(); return; }
       const room = container.querySelector('#obCourseRoom').value.trim();
       const day = container.querySelector('#obDay').value;
-      const start = +container.querySelector('#obStart').value;
-      const end = +container.querySelector('#obEnd').value;
-      if (end <= start) {
+      const start = container.querySelector('#obStart').value;
+      const end = container.querySelector('#obEnd').value;
+      if (!start || !end || end <= start) {
         container.querySelector('#obMsg').innerHTML = `<div class="auth-error">La hora de fin debe ser después del inicio.</div>`;
         return;
       }
@@ -143,8 +136,8 @@ export async function renderOnboarding(container) {
       await classSessionRepo.create({
         course_id: course.id,
         day_of_week: DAY_TO_NUM[day],
-        start_time: `${pad2(start)}:00`,
-        end_time: `${pad2(end)}:00`,
+        start_time: start,
+        end_time: end,
       });
       step++; paint();
     };

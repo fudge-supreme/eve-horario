@@ -352,9 +352,15 @@ footer p{font-family:'Fraunces',serif;font-style:italic;font-size:11.5px;color:v
 </div>
 <div class="app-layout" id="appLayout" data-tab="hoy">
 
+  <nav class="app-panel panel-quick quick-actions" id="panelQuick">
+    <button class="quick-btn" id="quickAddTask" aria-label="Nueva tarea" title="Nueva tarea">✓<span>+</span></button>
+    <button class="quick-btn" id="quickAddMateria" aria-label="Nueva materia" title="Nueva materia">📚<span>+</span></button>
+    <button class="quick-btn" id="quickAddNota" aria-label="Nueva nota" title="Nueva nota">📝<span>+</span></button>
+  </nav>
+
   <div class="app-panel panel-hoy" id="panelHoy">
     <header class="hero">
-      <div class="hero-left"><p class="eyebrow">FAD · UNAM</p><h1>Hoy</h1></div>
+      <div class="hero-left"><p class="eyebrow">Mi Horario</p><h1>Hoy</h1></div>
     </header>
     <div class="today-card" id="todayCard"></div>
     <div id="todayCountdown"></div>
@@ -391,6 +397,7 @@ footer p{font-family:'Fraunces',serif;font-style:italic;font-size:11.5px;color:v
     </div>
     <div class="week-row"><div class="week-bar"><div class="week-fill" id="weekFill"></div></div><span class="week-lbl" id="weekLbl"></span></div>
     <div class="cal-wrap" id="calWrap"><div class="cal-inner"><div class="cal-grid" id="calGrid"></div></div></div>
+    <div id="notesSection"></div>
     <button class="today-float-btn" id="todayFloatBtn">Hoy</button>
   </div>
 

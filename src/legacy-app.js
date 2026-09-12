@@ -19,6 +19,7 @@ import {
 } from './app/state.js';
 import { renderMaterias, openAddMateriaSheet, setCourseClickHandler, bindMateriasSearch } from './app/materias.js';
 import { renderTasksPanel, openAddTaskSheet, setTasksMutatedHandler } from './app/tasks.js';
+import { renderNotesSection, openAddNoteSheet, setNotesMutatedHandler } from './app/notes.js';
 import { openScheduleSwitcher, renderScheduleHeader } from './app/schedules.js';
 import { exportGridAsPNG, exportScheduleAsICS } from './app/export.js';
 import { setActiveTab, bindNav } from './app/nav.js';
@@ -429,17 +430,16 @@ function openEventDetailSheet(id, e) {
 }
 
 function openNewEvent(preDay, preStart) {
-  const { gs, ge } = gridRange();
-  const hours = [];
-  for (let h = Math.max(0, gs - 2); h < Math.min(24, ge + 2); h++) hours.push(h);
+  const startVal = `${String(preStart ?? 15).padStart(2, '0')}:00`;
+  const endVal = `${String(Math.min(23, (preStart ?? 15) + 1)).padStart(2, '0')}:00`;
   sheet.innerHTML = `
     <div class="sheet-handle"></div><button class="sheet-close" id="sc">×</button>
     <label>Nombre</label>
     <input type="text" id="neName" placeholder="Ej. Clase de yoga, Seminario…">
     <div class="time-row"><div><label>Día</label><select id="neDay">${DAYS.map((d) => `<option${d === preDay ? ' selected' : ''}>${d}</option>`).join('')}</select></div></div>
     <div class="time-row">
-      <div><label>Inicio</label><select id="neStart">${hours.map((h) => `<option value="${h}"${h === preStart ? ' selected' : ''}>${fH(h)}</option>`).join('')}</select></div>
-      <div><label>Fin</label><select id="neEnd">${hours.map((h) => `<option value="${h}"${h === preStart + 1 ? ' selected' : ''}>${fH(h)}</option>`).join('')}</select></div>
+      <div><label>Inicio</label><input type="time" id="neStart" value="${startVal}"></div>
+      <div><label>Fin</label><input type="time" id="neEnd" value="${endVal}"></div>
     </div>
     <label>Lugar <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
     <input type="text" id="neRoom" placeholder="Ej. S-201 o En línea">
@@ -449,9 +449,13 @@ function openNewEvent(preDay, preStart) {
     const name = document.getElementById('neName').value.trim();
     if (!name) { document.getElementById('neName').style.borderColor = 'var(--tag-coral)'; haptic([20, 50, 20]); return; }
     const day = document.getElementById('neDay').value;
-    const start = +document.getElementById('neStart').value;
-    const end = +document.getElementById('neEnd').value;
-    if (end <= start) { toast('La hora de fin debe ser después del inicio'); haptic([20, 50, 20]); return; }
+    const startStr = document.getElementById('neStart').value;
+    const endStr = document.getElementById('neEnd').value;
+    if (!startStr || !endStr || endStr <= startStr) { toast('La hora de fin debe ser después del inicio'); haptic([20, 50, 20]); return; }
+    const [startH, startM] = startStr.split(':').map(Number);
+    const [endH, endM] = endStr.split(':').map(Number);
+    const start = startH + startM / 60;
+    const end = endH + endM / 60;
     const room = document.getElementById('neRoom').value.trim();
     const online = room.toLowerCase() === 'en línea' || room.toLowerCase() === 'en linea';
     const { activeSchedule } = getState();
@@ -534,6 +538,7 @@ function renderCurrentPanels() {
   renderTasksPanel();
   renderScheduleHeader();
   renderTodayExtras();
+  renderNotesSection();
 }
 function renderTodayExtras() {
   const { ev, allTasks } = getState();
@@ -670,12 +675,16 @@ export function bindLegacyAppOnce() {
   bindMateriasSearch();
   setCourseClickHandler(openCourseDetailById);
   setTasksMutatedHandler(refreshAndRerender);
+  setNotesMutatedHandler(refreshAndRerender);
   document.getElementById('weekPrev').onclick = () => { haptic(H.tap); goToWeek(weekOffset - 1); };
   document.getElementById('weekNext').onclick = () => { haptic(H.tap); goToWeek(weekOffset + 1); };
   document.getElementById('todayFloatBtn').onclick = () => { haptic(H.tap); goToWeek(0); };
   document.getElementById('addEventBtn').onclick = () => { haptic(H.tap); openNewEvent(today || 'Lunes', new Date().getHours()); };
   document.getElementById('addMateriaBtn').onclick = () => { haptic(H.tap); openAddMateriaSheet(refreshAndRerender); };
   document.getElementById('addTaskBtn').onclick = () => { haptic(H.tap); openAddTaskSheet(refreshAndRerender); };
+  document.getElementById('quickAddTask').onclick = () => { haptic(H.tap); openAddTaskSheet(refreshAndRerender); };
+  document.getElementById('quickAddMateria').onclick = () => { haptic(H.tap); openAddMateriaSheet(refreshAndRerender); };
+  document.getElementById('quickAddNota').onclick = () => { haptic(H.tap); openAddNoteSheet(refreshAndRerender); };
   document.getElementById('switchScheduleBtn').onclick = () => {
     haptic(H.tap);
     openScheduleSwitcher(async () => { weekOffset = 0; setWeekOffset(0); resetSeedCache(); await refreshAndRerender(); renderWeekLabel(); });

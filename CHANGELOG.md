@@ -659,3 +659,78 @@ exactos esperados (`getComputedStyle`), sin rastro del rail. Mobile
 probado de punta a punta -- cambiar entre las 4 pestañas de la tab bar
 sigue funcionando exactamente igual que antes, ya que esa lógica no se
 tocó. Sin errores en consola en ninguno de los dos.
+
+## Botón de tareas tapado, hora libre, accesos rápidos, notas y quitar FAD·UNAM (2026-09-12)
+
+Reporte real, varias cosas juntas: "no me permite crear nuevas tareas,
+desapareció el signo de más"; pedido de una columna de accesos rápidos
+(tarea, materia, nota) con las notas visibles abajo del dashboard;
+"cuando quiero poner una materia en mi horario no me dejes seleccionar
+una hora, permíteme escribirla" (8/9/10pm no se podían poner); y quitar
+toda referencia a "FAD · UNAM" porque no es un sitio oficial de la UNAM
+y la idea es que la usen alumnos de cualquier facultad o universidad.
+
+**Bug real -- el botón + de Tareas quedaba tapado:** el fix del
+tri-panel de esta misma sesión movió el panel de Tareas a su posición
+correcta, pegado a la orilla derecha de la pantalla -- exactamente
+donde vive la barra fija de arriba (punto de sync, menú, ajustes,
+`z-index:22`). Antes del fix el panel estaba mal colocado por el bug de
+especificidad, así que por accidente nunca chocaban; al corregirlo, el
+botón "+" de "Agregar tarea" quedó geométricamente debajo de esa barra
+-- `document.elementFromPoint()` sobre el botón devolvía el ícono de
+ajustes, no el botón. Se veía, pero cualquier clic ahí lo interceptaba
+la barra. Corregido con `padding-top` en el encabezado del panel de
+Tareas (con `!important`, porque el valor base viene de un estilo
+inline pensado para el notch de iOS que si no le gana la cascada).
+
+**Bug real -- hora restringida al agregar el horario de una materia:**
+los selectores de "Inicio"/"Fin" (al agregar materia, en el
+onboarding, y al crear un evento suelto) eran un `<select>` de horas
+enteras de 6am a 10pm -- ni siquiera dejaba escribir minutos, y aunque
+10pm sí estaba en el rango, cualquier clase que empezara más tarde (o a
+una hora con minutos, ej. 8:30pm) no se podía registrar. Cambiados los
+3 a `<input type="time">`, que no tiene rango fijo y se puede escribir
+directo. El motor de renderizado del horario (`parseTimeHour` en
+state.js) ya soportaba minutos desde antes -- el límite estaba solo en
+el formulario, no en el modelo de datos ni en la base.
+
+**Columna de accesos rápidos:** se reusó el espacio de la columna que
+se había quitado (el rail muerto) para 3 botones -- nueva tarea, nueva
+materia, nueva nota -- cada uno abre directo la hoja correspondiente.
+
+**Notas con su propio espacio en el dashboard:** nueva sección "Notas"
+al final del panel Semana (debajo del calendario), con las notas más
+recientes de todas las materias. El modelo de datos no cambió -- una
+nota sigue siendo de una materia + una fecha (así vive desde Fase 1) --
+lo que cambió es que ahora hay una hoja rápida (`src/app/notes.js`,
+nueva) para agregarla sin tener que entrar primero al detalle de una
+materia específica.
+
+**Bug real encontrado probando la hoja de nota rápida (no introducido
+por esta sesión, pre-existente):** crear una nota nueva fallaba al
+sincronizar -- `PGRST204: Could not find the 'created_at' column of
+'notes' in the schema cache`. Mismo caso exacto que `class_sessions`
+(migración 003) y `tags` (migración 005): el repo genérico
+(`baseRepo.js`) le manda `created_at` a las 8 tablas que sincroniza por
+igual, pero a `notes` se le había pasado por alto agregarle esa
+columna. La escritura local en IndexedDB sí funcionaba (por eso nunca
+se notó en pantalla), pero el push a Supabase fallaba en silencio y
+reintentaba con backoff para siempre. Corregido con la migración 008,
+aplicada contra producción real, no solo local.
+
+**FAD · UNAM:** quitado de las 2 partes donde vivía (el "eyebrow" de la
+pantalla Hoy, y la descripción del manifest de la PWA) -- reemplazado
+por "Mi Horario" y una descripción genérica. Se revisó el repo entero
+(`grep` recursivo) para confirmar que no quedó ninguna otra mención.
+
+**Verificado en vivo, de punta a punta:** botón + de Tareas clickeable
+de verdad (confirmado con `elementFromPoint`, no solo visualmente);
+clase creada a las 10pm-11pm con confirmación directa en la base de
+datos; los 3 botones de accesos rápidos abren su hoja correspondiente;
+nota creada desde el botón rápido, verificada sincronizada en Postgres
+con `created_at` real (no solo localmente); mobile probado completo
+(la columna de accesos rápidos correctamente no aparece ahí, ya tiene
+sus propios botones + inline). Sin errores de consola en una pestaña
+nueva (los que aparecían en la pestaña que venía de antes del fix eran
+historial acumulado, no errores en curso -- confirmado abriendo una
+pestaña fresca).

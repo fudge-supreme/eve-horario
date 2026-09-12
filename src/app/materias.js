@@ -10,8 +10,6 @@ import { getState, DAYS, DAY_TO_NUM, COURSE_COLORS } from './state.js';
 let onCourseClick = null;
 export function setCourseClickHandler(fn) { onCourseClick = fn; }
 
-function pad2(n) { return String(n).padStart(2, '0'); }
-
 export function renderMaterias() {
   const grid = document.getElementById('materiasGrid');
   const empty = document.getElementById('materiasEmpty');
@@ -65,7 +63,7 @@ export function openAddMateriaSheet(afterCreate) {
   // sheet en cada horario agregado borraba nombre/código/etc.).
   function renderSlotsList() {
     document.getElementById('amSlotsList').innerHTML = slots
-      .map((s, i) => `<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;background:var(--surface);padding:7px 10px;border-radius:10px"><span style="flex:1">${s.day} · ${fmtHour(s.start)}–${fmtHour(s.end)}</span><button data-rm="${i}" style="border:none;background:none;color:var(--tag-coral);cursor:pointer">×</button></div>`)
+      .map((s, i) => `<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;background:var(--surface);padding:7px 10px;border-radius:10px"><span style="flex:1">${s.day} · ${fmtTimeStr(s.start)}–${fmtTimeStr(s.end)}</span><button data-rm="${i}" style="border:none;background:none;color:var(--tag-coral);cursor:pointer">×</button></div>`)
       .join('');
     document.querySelectorAll('#amSlotsList [data-rm]').forEach((btn) => {
       btn.onclick = () => { slots.splice(+btn.dataset.rm, 1); renderSlotsList(); };
@@ -91,8 +89,8 @@ export function openAddMateriaSheet(afterCreate) {
     <div id="amSlotsList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
     <div class="time-row">
       <div><label>Día</label><select id="amDay">${DAYS.map((d) => `<option>${d}</option>`).join('')}</select></div>
-      <div><label>Inicio</label><select id="amStart">${hoursOptions()}</select></div>
-      <div><label>Fin</label><select id="amEnd">${hoursOptions(1)}</select></div>
+      <div><label>Inicio</label><input type="time" id="amStart" value="15:00"></div>
+      <div><label>Fin</label><input type="time" id="amEnd" value="16:00"></div>
     </div>
     <button class="chip-add" id="amAddSlot" type="button">+ Agregar horario</button>
 
@@ -107,8 +105,9 @@ export function openAddMateriaSheet(afterCreate) {
   };
   document.getElementById('amAddSlot').onclick = () => {
     const day = document.getElementById('amDay').value;
-    const start = +document.getElementById('amStart').value;
-    const end = +document.getElementById('amEnd').value;
+    const start = document.getElementById('amStart').value;
+    const end = document.getElementById('amEnd').value;
+    if (!start || !end) { toast('Pon la hora de inicio y de fin'); return; }
     if (end <= start) { toast('La hora de fin debe ser después del inicio'); return; }
     slots.push({ day, start, end });
     haptic(H.tap);
@@ -133,8 +132,8 @@ export function openAddMateriaSheet(afterCreate) {
       await classSessionRepo.create({
         course_id: course.id,
         day_of_week: DAY_TO_NUM[s.day],
-        start_time: `${pad2(s.start)}:00`,
-        end_time: `${pad2(s.end)}:00`,
+        start_time: s.start,
+        end_time: s.end,
       });
     }
     await afterCreate();
@@ -143,9 +142,11 @@ export function openAddMateriaSheet(afterCreate) {
   openSheet();
 }
 
-function fmtHour(h) { const hh = h % 12 === 0 ? 12 : h % 12; return hh + (h >= 12 ? ' pm' : ' am'); }
-function hoursOptions(offset = 0) {
-  const opts = [];
-  for (let h = 6; h <= 22; h++) opts.push(`<option value="${h}"${h === 15 + offset ? ' selected' : ''}>${fmtHour(h)}</option>`);
-  return opts.join('');
+// Con <input type="time"> ya no hay un rango de horas fijo que definir
+// -- se puede escribir cualquiera, incluyendo las que el select viejo
+// no dejaba (8/9/10pm y más tarde, bug real reportado en producción).
+function fmtTimeStr(hhmm) {
+  const [h, m] = hhmm.split(':').map(Number);
+  const hh = h % 12 === 0 ? 12 : h % 12;
+  return `${hh}:${String(m).padStart(2, '0')} ${h >= 12 ? 'pm' : 'am'}`;
 }

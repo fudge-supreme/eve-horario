@@ -1,7 +1,7 @@
 {
   "name": "Mi Horario",
   "short_name": "Horario",
-  "description": "Horario semanal, FAD · UNAM",
+  "description": "Tu horario, tareas y notas de clase, sincronizados entre dispositivos",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
