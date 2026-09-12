@@ -243,6 +243,12 @@ const sheet = document.getElementById('sheet');
 (function () {
   let sy = 0, cy = 0, drag = false, startTs = 0;
   sheet.addEventListener('pointerdown', (e) => {
+    // En desktop la hoja se centra como diálogo (ver layout.css) en vez
+    // de anclarse abajo -- el arrastre para cerrar deslizando solo
+    // tiene sentido en el patrón de celular, y como usa
+    // sheet.style.transform directo, en desktop pisaría el
+    // translate(-50%,-50%) que la mantiene centrada.
+    if (window.innerWidth >= 1024) return;
     // El botón de cerrar (×) vive en los primeros 60px, la misma zona
     // que dispara el arrastre -- sin este guard, tocarlo capturaba el
     // puntero para el gesto de swipe y se comía el click, dejando el

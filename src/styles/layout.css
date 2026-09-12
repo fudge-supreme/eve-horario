@@ -197,11 +197,17 @@ body:has(#app-shell:not([hidden])) { padding-bottom: calc(64px + env(safe-area-i
     grid-template-areas: 'rail materias semana tareas';
     height: 100vh;
   }
+  /* .app-layout > .panel-X (2 clases) en vez de .panel-X solo (1 clase):
+     así empatan en especificidad con ".app-layout > .app-panel" de
+     arriba y ganan por orden de aparición -- con solo 1 clase, el
+     reset de arriba les ganaba la cascada aunque viniera antes en el
+     archivo, y las 4 áreas nombradas nunca se aplicaban de verdad (bug
+     real: todo caía en auto-placement por DOM order, no por columna). */
   .app-layout > .app-panel { grid-area: unset; }
-  .panel-rail { display: flex; grid-area: rail; }
-  .panel-materias { display: flex !important; flex-direction: column; grid-area: materias; border-right: 1px solid var(--line); }
-  .panel-semana { display: block !important; grid-area: semana; }
-  .panel-tareas { display: flex !important; flex-direction: column; grid-area: tareas; border-left: 1px solid var(--line); }
+  .app-layout > .panel-rail { display: flex; grid-area: rail; }
+  .app-layout > .panel-materias { display: flex !important; flex-direction: column; grid-area: materias; border-right: 1px solid var(--line); }
+  .app-layout > .panel-semana { display: block !important; grid-area: semana; }
+  .app-layout > .panel-tareas { display: flex !important; flex-direction: column; grid-area: tareas; border-left: 1px solid var(--line); }
   .panel-hoy { display: none !important; }
   .panel-materias, .panel-semana, .panel-tareas { overflow-y: auto; max-height: 100vh; }
 
@@ -214,6 +220,20 @@ body:has(#app-shell:not([hidden])) { padding-bottom: calc(64px + env(safe-area-i
   .cal-wrap { padding-bottom: 40px; }
   .today-card-desktop { display: block; margin: 20px 20px 0; }
   .app-utility-bar { top: 16px; right: 20px; }
+
+  /* Las hojas (agregar materia, detalle de evento, etc.) usan el patrón
+     de "sube desde abajo" pensado para celular -- en una pantalla
+     grande de escritorio eso se ve como una tarjeta chica pegada hasta
+     abajo, con todo el resto de la pantalla vacío arriba. En desktop
+     se centran como un diálogo normal. */
+  .sheet {
+    top: 50%; left: 50%; right: auto; bottom: auto;
+    transform: translate(-50%, -50%) scale(0.96);
+    opacity: 0; pointer-events: none;
+    border-radius: 24px;
+  }
+  .sheet.open { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
+  .sheet-handle { display: none; }
 }
 
 /* --- Nav rail (solo desktop) --- */
